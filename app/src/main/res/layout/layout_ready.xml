@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	android:id="@+id/readyLayout"
+	android:orientation="vertical"
+	android:layout_gravity="center"
+	android:layout_width="300dp"
+	android:layout_height="wrap_content">
+
+	<TextView
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:id="@+id/readyHelp"
+		android:text="@string/readyHelp"
+		android:layout_marginBottom="24dp"
+		/>
+	<Button
+		android:layout_gravity="center"
+		android:layout_width="160dp"
+		android:layout_height="wrap_content"
+		android:id="@+id/readyButton"
+		android:text="@string/readyButton"
+		/>
+
+</LinearLayout>

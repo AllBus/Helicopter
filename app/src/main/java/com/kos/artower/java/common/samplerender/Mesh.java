@@ -19,6 +19,7 @@ import android.opengl.GLES30;
 import android.util.Log;
 import de.javagl.obj.Obj;
 import de.javagl.obj.ObjData;
+import de.javagl.obj.ObjGroup;
 import de.javagl.obj.ObjReader;
 import de.javagl.obj.ObjUtils;
 import java.io.Closeable;
@@ -129,6 +130,7 @@ public class Mesh implements Closeable {
    */
   public static Mesh createFromAsset(SampleRender render, String assetFileName) throws IOException {
     try (InputStream inputStream = render.getAssets().open(assetFileName)) {
+
       Obj obj = ObjUtils.convertToRenderable(ObjReader.read(inputStream));
 
       // Obtain the data from the OBJ, as direct buffers:
@@ -148,6 +150,29 @@ public class Mesh implements Closeable {
       return new Mesh(render, Mesh.PrimitiveMode.TRIANGLES, indexBuffer, vertexBuffers);
     }
   }
+
+//  public static Mesh createFromObj(SampleRender render, Obj obj, String groupName) throws IOException {
+//
+//    ObjGroup group =  obj.getGroup(groupName);
+//
+//
+//    group.getNumFaces()
+//    // Obtain the data from the OBJ, as direct buffers:
+//    IntBuffer vertexIndices =  ObjData.getFaceVertexIndices(group., /*numVerticesPerFace=*/ 3);
+//    FloatBuffer localCoordinates = ObjData.getVertices(group);
+//    FloatBuffer textureCoordinates = ObjData.getTexCoords(group, /*dimensions=*/ 2);
+//    FloatBuffer normals = ObjData.getNormals(group);
+//
+//    VertexBuffer[] vertexBuffers = {
+//            new VertexBuffer(render, 3, localCoordinates),
+//            new VertexBuffer(render, 2, textureCoordinates),
+//            new VertexBuffer(render, 3, normals),
+//    };
+//
+//    IndexBuffer indexBuffer = new IndexBuffer(render, vertexIndices);
+//
+//    return new Mesh(render, Mesh.PrimitiveMode.TRIANGLES, indexBuffer, vertexBuffers);
+//  }
 
   @Override
   public void close() {

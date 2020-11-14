@@ -18,7 +18,7 @@
 	xmlns:tools="http://schemas.android.com/tools"
 	android:layout_width="match_parent"
 	android:layout_height="match_parent"
-	tools:context="com.kos.artower.java.helloar.HelloArActivity">
+	tools:context="com.kos.artower.java.ar.ArActivity">
 
 	<android.opengl.GLSurfaceView
 		android:id="@+id/surfaceview"

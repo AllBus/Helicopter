@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.kos.artower.java.helloar;
+package com.kos.artower.java.ar;
 
 import android.content.DialogInterface;
 import android.content.res.Resources;
@@ -76,24 +76,24 @@ import com.google.ar.core.exceptions.UnavailableArcoreNotInstalledException;
 import com.google.ar.core.exceptions.UnavailableDeviceNotCompatibleException;
 import com.google.ar.core.exceptions.UnavailableSdkTooOldException;
 import com.google.ar.core.exceptions.UnavailableUserDeclinedInstallationException;
-import com.kos.artower.java.helloar.heroes.Enemy;
-import com.kos.artower.java.helloar.heroes.Game;
+import com.kos.artower.java.ar.heroes.Enemy;
+import com.kos.artower.java.ar.heroes.Game;
+import com.kos.artower.java.ar.meshs.HelicopterMesh;
 import com.kos.artowerr.R;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.logging.Logger;
 
 /**
  * This is a simple example that shows how to create an augmented reality (AR) application using the
  * ARCore API. The application will display any detected planes and will allow the user to tap on a
  * plane to place a 3d model of the Android robot.
  */
-public class HelloArActivity extends AppCompatActivity implements SampleRender.Renderer {
+public class ArActivity extends AppCompatActivity implements SampleRender.Renderer {
 
-	private static final String TAG = HelloArActivity.class.getSimpleName();
+	private static final String TAG = ArActivity.class.getSimpleName();
 
 	private static final String SEARCHING_PLANE_MESSAGE = "Searching for surfaces...";
 
@@ -164,7 +164,8 @@ public class HelloArActivity extends AppCompatActivity implements SampleRender.R
 	private Mesh canonMesh;
 	private Mesh coreMesh;
 	private Mesh towerMesh;
-	private Mesh helicopterMesh;
+	private Mesh towerWallMesh;
+	private HelicopterMesh helicopter;
 	private Anchor towerAnchor;
 	private Mesh[] enemyMeshs;
 
@@ -190,11 +191,13 @@ public class HelloArActivity extends AppCompatActivity implements SampleRender.R
 	// Temporary matrix allocated here to reduce number of allocations for each frame.
 	private final float[] scaleMatrix = {0.05f, 0, 0, 0, 0, 0.05f, 0, 0, 0, 0, 0.05f, 0, 0, 0, 0, 1};
 	private final float[] modelMatrix = new float[16];
+	private final float[] scaledModeMatrix = new float[16]; // view x model
 	private final float[] tempMatrix = new float[16];
 	private final float[] viewMatrix = new float[16];
 	private final float[] projectionMatrix = new float[16];
 	private final float[] modelViewMatrix = new float[16]; // view x model
 	private final float[] modelViewProjectionMatrix = new float[16]; // projection x view x model
+
 	private final float[] viewLightDirection = new float[4]; // view x LIGHT_DIRECTION
 	private final float[] towerColor = {66.0f / 255.0f, 255.0f / 255.0f, 244.0f / 255.0f};
 	private final float[] enemyColor = {266.0f / 255.0f, 255.0f / 255.0f, 123.0f / 255.0f};
@@ -245,8 +248,8 @@ public class HelloArActivity extends AppCompatActivity implements SampleRender.R
 				new View.OnClickListener() {
 					@Override
 					public void onClick(View v) {
-						PopupMenu popup = new PopupMenu(HelloArActivity.this, v);
-						popup.setOnMenuItemClickListener(HelloArActivity.this::settingsMenuClick);
+						PopupMenu popup = new PopupMenu(ArActivity.this, v);
+						popup.setOnMenuItemClickListener(ArActivity.this::settingsMenuClick);
 						popup.inflate(R.menu.settings_menu);
 						popup.show();
 					}
@@ -425,7 +428,10 @@ public class HelloArActivity extends AppCompatActivity implements SampleRender.R
 			canonMesh = Mesh.createFromAsset(render, "models/canon.obj");
 			coreMesh = Mesh.createFromAsset(render, "models/core.obj");
 			towerMesh = Mesh.createFromAsset(render, "models/tower.obj");
-			helicopterMesh = Mesh.createFromAsset(render, "models/helicopter.obj");
+			towerWallMesh = Mesh.createFromAsset(render, "models/tower_wall.obj");
+			helicopter = new HelicopterMesh(render,"models/helicopter.obj", "models/helicopter_rotor.obj", "models/helicopter_tail.obj"  );
+
+
 
 			enemyMeshs = new Mesh[5];
 			enemyMeshs[0] = enemyOneMesh;
@@ -550,6 +556,7 @@ public class HelloArActivity extends AppCompatActivity implements SampleRender.R
 			// Get camera matrix and draw.
 			camera.getViewMatrix(viewMatrix, 0);
 
+
 			// Compute lighting from average intensity of the image.
 			// The first three components are color scaling factors.
 			// The last one is the average pixel intensity in gamma space.
@@ -611,6 +618,7 @@ public class HelloArActivity extends AppCompatActivity implements SampleRender.R
 				if (towerAnchor!=null){
 					towerAnchor.getPose().toMatrix(modelMatrix, 0);
 					drawMesh(towerMesh, towerColor, colorCorrectionRgba, modelMatrix);
+					drawMesh(towerWallMesh, towerColor, colorCorrectionRgba, modelMatrix);
 				}
 
 				for (Enemy enemy : game.enemies) {
@@ -620,6 +628,7 @@ public class HelloArActivity extends AppCompatActivity implements SampleRender.R
 						Matrix.rotateM(modelMatrix,0, enemy.angle,0,1,0);
 						Matrix.translateM(modelMatrix,0, enemy.x, enemy.y, enemy.z);
 						drawMesh(enemyMeshs[enemy.meshIndex],enemyColor,colorCorrectionRgba, modelMatrix);
+
 					}
 				}
 
@@ -627,35 +636,18 @@ public class HelloArActivity extends AppCompatActivity implements SampleRender.R
 			//	camera.getPose().extractTranslation().toMatrix(modelMatrix,0);
 
 
-				Pose sensorPose = camera.getDisplayOrientedPose();
-
-				float qx = sensorPose.qx();
-				float qy = sensorPose.qy();
-				float qz = sensorPose.qz();
-				Pose.makeRotation(0,qy, qz, 1 - qy*qy-qz*qz).inverse().toMatrix(tempMatrix, 0);
-
-
-			//	frame.getAndroidSensorPose().toMatrix (modelMatrix, 0);
-			//	camera.getDisplayOrientedPose().extractRotation().inverse().compose(camera.getDisplayOrientedPose()).toMatrix(modelMatrix,0);
-
-				Pose.IDENTITY.toMatrix(modelMatrix, 0);
-				Matrix.translateM(modelMatrix,0,
-					//	towerAnchor.getPose().tx(),
-						sensorPose.tx(),
-						towerAnchor.getPose().ty()+0.7f , //Выше плоскости башни на 1 метр
-						//towerAnchor.getPose().tz());
-						sensorPose.tz());
 
 
 
 
-			//	Matrix.translateM(modelMatrix,0, 0, 0, -0.1f);
-				Matrix.scaleM(modelMatrix, 0 ,0.2f,0.2f,0.2f);
-				Matrix.multiplyMM(modelMatrix,0, modelMatrix, 0, tempMatrix, 0);
-				Matrix.rotateM(modelMatrix,0, 180f, 0,1,0);
-				Matrix.translateM(modelMatrix,0, 0, 0, 0.4f);
 
-				drawMesh(helicopterMesh, towerColor, colorCorrectionRgba, modelMatrix);
+
+
+
+
+				drawHelicopter(camera, modelMatrix, colorCorrectionRgba);
+
+
 			}
 
 		} catch (Throwable t) {
@@ -664,12 +656,51 @@ public class HelloArActivity extends AppCompatActivity implements SampleRender.R
 		}
 	}
 
+	private void drawHelicopter(Camera camera, float[] modelMatrix, float[] colorCorrectionRgba) {
+		helicopter.moveRotors(game.frameDuration);
+
+
+		//Переместим вертолёт
+		Pose sensorPose = camera.getDisplayOrientedPose();
+
+		float qx = sensorPose.qx();
+		float qy = sensorPose.qy();
+		float qz = sensorPose.qz();
+		Pose.makeRotation(0,qy, qz, 1 - qy*qy-qz*qz).inverse().toMatrix(tempMatrix, 0);
+
+		Pose.IDENTITY.toMatrix(modelMatrix, 0);
+		Matrix.translateM(modelMatrix,0,
+				//towerAnchor.getPose().tx(),
+				sensorPose.tx(),
+				towerAnchor.getPose().ty()+0.7f , //Выше плоскости башни на 1 метр
+				//towerAnchor.getPose().tz());
+				sensorPose.tz());
+
+
+		Matrix.scaleM(modelMatrix, 0 ,0.2f,0.2f,0.2f);
+		Matrix.multiplyMM(modelMatrix,0, modelMatrix, 0, tempMatrix, 0);
+		Matrix.rotateM(modelMatrix,0, 180f, 0,1,0);
+		Matrix.translateM(modelMatrix,0, 0, 0, 0.4f);
+
+
+		drawMesh(helicopter.helicopterMesh, helicopter.color, colorCorrectionRgba, modelMatrix);
+
+		Matrix.rotateM(modelMatrix,0, helicopter.rotorAngle , 0,1,0);
+		drawMesh(helicopter.helicopterRotorMesh, helicopter.rotorColor, colorCorrectionRgba, modelMatrix);
+
+		Matrix.rotateM(modelMatrix,0, -helicopter.rotorAngle , 0,1,0);
+		Matrix.translateM(modelMatrix,0, helicopter.tailRotorTranslate[0], helicopter.tailRotorTranslate[1], helicopter.tailRotorTranslate[2]);
+		Matrix.rotateM(modelMatrix,0, helicopter.rotorTailAngle , 1,0,0);
+
+		drawMesh(helicopter.helicopterRotorTailMesh, helicopter.rotorColor, colorCorrectionRgba, modelMatrix);
+	}
+
 	private void drawMesh(Mesh mesh, float[] color, float[] colorCorrectionRgba, float[] modelMatrix) {
 
-		Matrix.multiplyMM(modelMatrix, 0, modelMatrix, 0, scaleMatrix, 0);
+		Matrix.multiplyMM(scaledModeMatrix, 0, modelMatrix, 0, scaleMatrix, 0);
 
 		// Calculate model/view/projection matrices and view-space light direction
-		Matrix.multiplyMM(modelViewMatrix, 0, viewMatrix, 0, modelMatrix, 0);
+		Matrix.multiplyMM(modelViewMatrix, 0, viewMatrix, 0, scaledModeMatrix, 0);
 		Matrix.multiplyMM(modelViewProjectionMatrix, 0, projectionMatrix, 0, modelViewMatrix, 0);
 		Matrix.multiplyMV(viewLightDirection, 0, viewMatrix, 0, LIGHT_DIRECTION, 0);
 

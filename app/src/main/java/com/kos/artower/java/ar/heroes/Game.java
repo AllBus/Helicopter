@@ -1,4 +1,4 @@
-package com.kos.artower.java.helloar.heroes;
+package com.kos.artower.java.ar.heroes;
 
 import java.util.Random;
 

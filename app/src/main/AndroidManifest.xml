@@ -26,14 +26,14 @@
 
   <application
       android:allowBackup="false"
-      android:icon="@drawable/ic_launcher"
+      android:icon="@mipmap/ic_launcher"
       android:label="@string/app_name"
       android:theme="@style/AppTheme"
       android:usesCleartextTraffic="false"
       tools:ignore="GoogleAppIndexingWarning">
 
     <activity
-        android:name="com.kos.artower.java.helloar.HelloArActivity"
+        android:name="com.kos.artower.java.ar.ArActivity"
         android:configChanges="orientation|screenSize"
         android:exported="true"
         android:theme="@style/Theme.AppCompat.NoActionBar"

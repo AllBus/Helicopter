@@ -156,6 +156,7 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 			"shaders/ambient_intensity.frag";
 	// Note: the last component must be zero to avoid applying the translational part of the matrix.
 	private static final float[] LIGHT_DIRECTION = {0.250f, 0.866f, 0.433f, 0.0f};
+	private static final float hitEps = 0.1f;
 	private Mesh virtualObjectMesh;
 
 	private Mesh enemyOneMesh;
@@ -429,7 +430,11 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 			coreMesh = Mesh.createFromAsset(render, "models/core.obj");
 			towerMesh = Mesh.createFromAsset(render, "models/tower.obj");
 			towerWallMesh = Mesh.createFromAsset(render, "models/tower_wall.obj");
-			helicopter = new HelicopterMesh(render,"models/helicopter.obj", "models/helicopter_rotor.obj", "models/helicopter_tail.obj"  );
+			helicopter = new HelicopterMesh(render,
+					"models/helicopter.obj",
+					"models/helicopter_rotor.obj",
+					"models/helicopter_tail.obj",
+					"models/helicopter.png");
 
 
 
@@ -450,6 +455,7 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 			virtualObjectDepthShader =
 					createVirtualObjectShader(render, virtualObjectTexture, /*use_depth_for_occlusion=*/ true)
 							.setTexture("u_DepthTexture", depthTexture);
+
 		} catch (IOException e) {
 			Log.e(TAG, "Failed to read an asset file", e);
 		}
@@ -524,14 +530,27 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 			HitResult hitTower = null;
 			if (game.readyState == Game.FIND_SURFACE) {
 				hitTower = hitPosition(frame, camera, centerPositionX, centerPositionY);
+				if (hitTower!=null) {
+					if (!checkHorizontalPose( hitTower.getHitPose())){
+						hitTower = null;
+					}
+
+				}
+
 			}else
 			if (game.readyState == Game.TOWER_ANCHOR)	{
 				hitTower = hitPosition(frame, camera, centerPositionX, centerPositionY);
 				if (hitTower!=null){
+
+					if (!checkHorizontalPose( hitTower.getHitPose())){
+						hitTower = null;
+					}
+
 					if (towerAnchor!=null){
 						towerAnchor.detach();
 						towerAnchor = null;
 					}
+
 					towerAnchor = hitTower.createAnchor();
 					setReadyState(Game.GAME);
 				}
@@ -590,6 +609,9 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 					camera.getDisplayOrientedPose(),
 					projectionMatrix);
 
+			Shader shader =
+					depthSettings.useDepthForOcclusion() ? virtualObjectDepthShader : virtualObjectShader;
+
 			// Visualize anchors created by touch.
 			for (ColoredAnchor coloredAnchor : anchors) {
 				if (coloredAnchor.anchor.getTrackingState() != TrackingState.TRACKING) {
@@ -605,21 +627,20 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 				}
 
 				coloredAnchor.anchor.getPose().toMatrix(modelMatrix, 0);
-				drawMesh(enemyTwoMesh, coloredAnchor.color, colorCorrectionRgba, modelMatrix);
+				drawMesh(enemyTwoMesh, coloredAnchor.color, colorCorrectionRgba, modelMatrix, shader);
 
 			}
 
 			if (game.readyState == Game.FIND_SURFACE) {
 				if (hitTower != null) {
 					hitTower.getHitPose().toMatrix(modelMatrix, 0);
-					drawMesh(towerMesh, towerColor, colorCorrectionRgba, modelMatrix);
+					drawMesh(towerMesh, towerColor, colorCorrectionRgba, modelMatrix, shader);
 				}
 			}else{
-				if (towerAnchor!=null){
-					towerAnchor.getPose().toMatrix(modelMatrix, 0);
-					drawMesh(towerMesh, towerColor, colorCorrectionRgba, modelMatrix);
-					drawMesh(towerWallMesh, towerColor, colorCorrectionRgba, modelMatrix);
-				}
+				//Is In Game
+				drawTower(colorCorrectionRgba, shader);
+
+
 
 				for (Enemy enemy : game.enemies) {
 					if (enemy.state == Enemy.State.Normal){
@@ -627,25 +648,12 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 
 						Matrix.rotateM(modelMatrix,0, enemy.angle,0,1,0);
 						Matrix.translateM(modelMatrix,0, enemy.x, enemy.y, enemy.z);
-						drawMesh(enemyMeshs[enemy.meshIndex],enemyColor,colorCorrectionRgba, modelMatrix);
+						drawMesh(enemyMeshs[enemy.meshIndex],enemyColor,colorCorrectionRgba, modelMatrix, shader);
 
 					}
 				}
 
-				camera.getDisplayOrientedPose().toMatrix(modelMatrix,0);
-			//	camera.getPose().extractTranslation().toMatrix(modelMatrix,0);
-
-
-
-
-
-
-
-
-
-
-
-				drawHelicopter(camera, modelMatrix, colorCorrectionRgba);
+				drawHelicopter(camera, modelMatrix, colorCorrectionRgba, shader);
 
 
 			}
@@ -656,7 +664,22 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 		}
 	}
 
-	private void drawHelicopter(Camera camera, float[] modelMatrix, float[] colorCorrectionRgba) {
+	private boolean checkHorizontalPose(Pose hitPose) {
+		return (Math.abs(hitPose.qx())< hitEps  && Math.abs(hitPose.qz())< hitEps);
+	}
+
+	private void drawTower(float[] colorCorrectionRgba, Shader shader) {
+		if (towerAnchor!=null){
+			towerAnchor.getPose().toMatrix(modelMatrix, 0);
+			drawMesh(towerMesh, towerColor, colorCorrectionRgba, modelMatrix, shader);
+
+			float scale = game.tower.radius/game.tower.maxRadius;
+			Matrix.scaleM(modelMatrix, 0, scale,1.2f*scale,scale);
+			drawMesh(towerWallMesh, towerColor, colorCorrectionRgba, modelMatrix, shader);
+		}
+	}
+
+	private void drawHelicopter(Camera camera, float[] modelMatrix, float[] colorCorrectionRgba, Shader shader) {
 		helicopter.moveRotors(game.frameDuration);
 
 
@@ -667,6 +690,9 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 		float qy = sensorPose.qy();
 		float qz = sensorPose.qz();
 		Pose.makeRotation(0,qy, qz, 1 - qy*qy-qz*qz).inverse().toMatrix(tempMatrix, 0);
+
+		camera.getDisplayOrientedPose().toMatrix(modelMatrix,0);
+		//	camera.getPose().extractTranslation().toMatrix(modelMatrix,0);
 
 		Pose.IDENTITY.toMatrix(modelMatrix, 0);
 		Matrix.translateM(modelMatrix,0,
@@ -683,19 +709,19 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 		Matrix.translateM(modelMatrix,0, 0, 0, 0.4f);
 
 
-		drawMesh(helicopter.helicopterMesh, helicopter.color, colorCorrectionRgba, modelMatrix);
+		drawMesh(helicopter.helicopterMesh, helicopter.color, colorCorrectionRgba, modelMatrix, helicopter.shader);
 
 		Matrix.rotateM(modelMatrix,0, helicopter.rotorAngle , 0,1,0);
-		drawMesh(helicopter.helicopterRotorMesh, helicopter.rotorColor, colorCorrectionRgba, modelMatrix);
+		drawMesh(helicopter.helicopterRotorMesh, helicopter.rotorColor, colorCorrectionRgba, modelMatrix, shader);
 
 		Matrix.rotateM(modelMatrix,0, -helicopter.rotorAngle , 0,1,0);
 		Matrix.translateM(modelMatrix,0, helicopter.tailRotorTranslate[0], helicopter.tailRotorTranslate[1], helicopter.tailRotorTranslate[2]);
 		Matrix.rotateM(modelMatrix,0, helicopter.rotorTailAngle , 1,0,0);
 
-		drawMesh(helicopter.helicopterRotorTailMesh, helicopter.rotorColor, colorCorrectionRgba, modelMatrix);
+		drawMesh(helicopter.helicopterRotorTailMesh, helicopter.rotorColor, colorCorrectionRgba, modelMatrix, shader);
 	}
 
-	private void drawMesh(Mesh mesh, float[] color, float[] colorCorrectionRgba, float[] modelMatrix) {
+	private void drawMesh(Mesh mesh, float[] color, float[] colorCorrectionRgba, float[] modelMatrix, Shader shader) {
 
 		Matrix.multiplyMM(scaledModeMatrix, 0, modelMatrix, 0, scaleMatrix, 0);
 
@@ -705,8 +731,6 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 		Matrix.multiplyMV(viewLightDirection, 0, viewMatrix, 0, LIGHT_DIRECTION, 0);
 
 		// Update shader properties and draw
-		Shader shader =
-				depthSettings.useDepthForOcclusion() ? virtualObjectDepthShader : virtualObjectShader;
 		shader
 				.setMatrix4("u_ModelView", modelViewMatrix)
 				.setMatrix4("u_ModelViewProjection", modelViewProjectionMatrix)

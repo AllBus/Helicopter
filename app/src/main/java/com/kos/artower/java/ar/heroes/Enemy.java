@@ -13,14 +13,24 @@ public class Enemy {
 	public float vy = 0f;
 	public float vz = 0f;
 	public float animationLength = 1.5f;
-	public float waitTime = 0;
+	public float waitTime = 0; //Время в секундах
+	public float power = 4f;
 
 
 	public Enemy.State state = State.Free;
 
+	/**
+	 * @return Герой свободен. Не существует
+	 */
 	public boolean isFree() {
 		return state == State.Free;
 	}
+
+	/**
+	 *
+	 * @return Герой в игре и движется.
+	 */
+	public boolean inGame() { return state == State.Normal; }
 
 	public void reset(int meshIndex, float radius, float angle, float speed, float waitTime) {
 		this.meshIndex = 0;
@@ -36,12 +46,12 @@ public class Enemy {
 		this.animationLength = 0.5f;
 		this.state = State.Wait;
 		this.waitTime = waitTime;
+		this.power = 4f;
 	}
 
 	public void destroy() {
 		this.state = State.Free;
 	}
-
 
 	public enum State{
 		Normal,

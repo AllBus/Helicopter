@@ -1,5 +1,7 @@
 package com.kos.artower.java.ar.heroes;
 
+import androidx.annotation.NonNull;
+
 import java.util.Random;
 
 public class Game {
@@ -16,14 +18,21 @@ public class Game {
 	public long globalTime = 0L;
 	public long frameDuration = 0L;
 	public long gameTime = 0L;
-	public float towerRadius = 0.08f;
 
 
+	@NonNull
+	public Tower tower = new Tower();
+
+	@NonNull
 	public Enemy[] enemies = new Enemy[MAX_ENEMIES];
+
+	@NonNull
 	public Enemy[] cores = new Enemy[MAX_CORES];
 
-	private long waveEnemyTime = 20000;
+	private float waveEnemyTime = 20; //Время в секундах
 	private int waveNumber = 1;
+
+	@NonNull
 	public Random r = new Random(System.currentTimeMillis() * 23);
 
 	public Game() {
@@ -42,8 +51,14 @@ public class Game {
 		for (int i = 0; i < cores.length; i++) {
 			cores[i] = new Enemy();
 		}
+
+		tower = new Tower();
+
 		waveNumber = 0;
-		waveEnemyTime = 20000;
+		waveEnemyTime = 20; //Время в секундах
+
+
+
 	}
 
 	public long updateTime() {
@@ -65,7 +80,8 @@ public class Game {
 	private void intersectEnemies() {
 
 		for (Enemy enemy : enemies) {
-			if (enemy.x < towerRadius) {
+			if (enemy.inGame() && enemy.x < tower.radius) {
+				changeHealth(-enemy.power);
 				enemy.destroy();
 			}
 		}
@@ -96,29 +112,35 @@ public class Game {
 				enemy.x -= enemy.vx * f;
 				enemy.z -= enemy.vz * f;
 
-				enemy.y = (float) (1f+(Math.cos((enemy.animationPos / enemy.animationLength)* 2* Math.PI)) * 0.2f) * 0.1f;
+				enemy.y = (float) (1f + (Math.cos((enemy.animationPos / enemy.animationLength) * 2 * Math.PI)) * 0.2f) * 0.1f;
 			}
 
 		}
 	}
+
 
 	private void newEnemies() {
 		int c = enemiesCount();
 		if (c == 0) {
 			waveNumber += 1;
-			waveEnemyTime += 100;
-			final int enemyInWave = Math.min(5+waveNumber*2, MAX_ENEMIES);
+			waveEnemyTime += 0.100f;
+			final int enemyInWave = Math.min(3 + waveNumber * 2, MAX_ENEMIES);
+
+			float waitTime = waveEnemyTime/enemyInWave;
+
 			for (int i = 0; i < enemyInWave; i++) {
-				addEnemy(0);
+				addEnemy(0,waitTime*i+r.nextFloat()*waitTime);
 			}
 		}
 	}
 
-	private boolean addEnemy(int meshIndex) {
+	private boolean addEnemy(int meshIndex, float waitTime) {
 
 		for (Enemy enemy : enemies) {
 			if (enemy.isFree()) {
-				enemy.reset(meshIndex, 0.5f + r.nextFloat() * 0.5f, r.nextFloat() * 360f, 0.05f + r.nextFloat() * 0.005f, r.nextFloat() * 3f);
+				enemy.reset(meshIndex, 0.5f + r.nextFloat() * 0.5f, r.nextFloat() * 360f,
+						0.05f + r.nextFloat() * 0.005f,
+						waitTime);
 				return true;
 			}
 		}
@@ -128,9 +150,28 @@ public class Game {
 	private int enemiesCount() {
 		int c = 0;
 		for (Enemy enemy : enemies) {
-			if (enemy.state == Enemy.State.Normal)
+			if (!enemy.isFree())
 				c++;
 		}
 		return c;
+	}
+
+	public void changeHealth(float changeValue) {
+		tower.health += changeValue;
+
+		if (tower.health > 100f)
+			tower.health = 100f;
+
+		if (tower.health <= 0) {
+			gameOver();
+			return;
+		}
+
+		tower.radius = (tower.maxRadius - tower.minRadius) * tower.health * 0.01f + tower.minRadius;
+	}
+
+	private void gameOver() {
+		//Todo: Kos 14.11.2020  need game over state
+		resetGame();
 	}
 }

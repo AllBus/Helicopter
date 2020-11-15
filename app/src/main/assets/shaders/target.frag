@@ -203,17 +203,6 @@ void main() {
   color *= colorShift * (averagePixelIntensity / kMiddleGrayGamma);
 
   o_FragColor.rgb = color;
-  o_FragColor.a = albedoColor.a;
+  o_FragColor.a = 0.7;
 
-  #if USE_DEPTH_FOR_OCCLUSION
-  const float kMetersToMillimeters = 1000.0;
-  float asset_depth_mm = v_ViewPosition.z * kMetersToMillimeters * -1.;
-  // Computes the texture coordinates to sample from the depth image.
-  vec2 depth_uvs = (u_DepthUvTransform * vec3(v_ScreenSpacePosition.xy, 1)).xy;
-
-  // The following step is very costly. Replace the last line with the
-  // commented line if it's too expensive.
-  o_FragColor *= DepthGetVisibility(u_DepthTexture, depth_uvs, asset_depth_mm);
-  //o_FragColor *= DepthGetBlurredVisibilityAroundUV(u_DepthTexture, depth_uvs, asset_depth_mm);
-  #endif
 }

@@ -141,7 +141,6 @@ public class Game {
 
 	private void intersectTowerAnchors(Pose towerPose) {
 		for (ColoredAnchor anchor : anchors) {
-			anchor.destroy();
 			if (anchor.isShooting()) {
 				float dx = anchor.coreX - towerPose.tx();
 				float dz = anchor.coreZ - towerPose.tz();
@@ -187,7 +186,7 @@ public class Game {
 							}
 						}//enemy in game
 					}
-				}//anchr shooting
+				}//anchor shooting
 
 
 				if (anchor.isReadyDestroy()){

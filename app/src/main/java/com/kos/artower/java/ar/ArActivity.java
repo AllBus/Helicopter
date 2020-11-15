@@ -176,11 +176,10 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 	private Shader virtualObjectDepthShader;
 
 
+	private static final float MESH_SCALE = 0.05f;
 
 	// Temporary matrix allocated here to reduce number of allocations for each frame.
-	private final float[] scaleMatrix = {0.05f, 0, 0, 0, 0, 0.05f, 0, 0, 0, 0, 0.05f, 0, 0, 0, 0, 1};
 	private final float[] modelMatrix = new float[16];
-	private final float[] scaledModeMatrix = new float[16]; // view x model
 	private final float[] tempMatrix = new float[16];
 	private final float[] viewMatrix = new float[16];
 	private final float[] projectionMatrix = new float[16];
@@ -428,7 +427,7 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 			// Virtual object to render
 			Texture virtualObjectTexture =
 					Texture.createFromAsset(render, "models/andy.png", Texture.WrapMode.CLAMP_TO_EDGE);
-			virtualObjectMesh = Mesh.createFromAsset(render, "models/tower.obj");
+			virtualObjectMesh = Mesh.createFromAsset(render, "models/tower.obj" , MESH_SCALE);
 			virtualObjectShader =
 					createVirtualObjectShader(
 							render, virtualObjectTexture, /*use_depth_for_occlusion=*/ false);
@@ -444,20 +443,21 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 					render, helicopterTexture, /*use_depth_for_occlusion=*/ false);
 
 			//Meshs
-			enemyOneMesh = Mesh.createFromAsset(render, "models/enemy_one.obj");
-			enemyTwoMesh = Mesh.createFromAsset(render, "models/enemy_two.obj");
-			healthMesh = Mesh.createFromAsset(render, "models/health.obj");
-			canonMesh = Mesh.createFromAsset(render, "models/canon.obj");
-			coreMesh = Mesh.createFromAsset(render, "models/core.obj");
-			targetMesh = Mesh.createFromAsset(render, "models/target.obj");
+			enemyOneMesh = Mesh.createFromAsset(render, "models/enemy_one.obj",MESH_SCALE);
+			enemyTwoMesh = Mesh.createFromAsset(render, "models/enemy_two.obj",MESH_SCALE);
+			healthMesh = Mesh.createFromAsset(render, "models/health.obj", MESH_SCALE);
+			canonMesh = Mesh.createFromAsset(render, "models/canon.obj", MESH_SCALE);
+			coreMesh = Mesh.createFromAsset(render, "models/core.obj", MESH_SCALE);
+			targetMesh = Mesh.createFromAsset(render, "models/target.obj", MESH_SCALE);
 
-			tower = new TowerMesh(render,"models/tower.obj", "models/tower_wall.obj", virtualObjectShader, virtualObjectShader);
+			tower = new TowerMesh(render,"models/tower.obj", "models/tower_wall.obj", virtualObjectShader, virtualObjectShader, MESH_SCALE);
 			helicopter = new HelicopterMesh(render,
 					"models/helicopter.obj",
 					"models/helicopter_rotor.obj",
 					"models/helicopter_tail.obj",
 					helicopterShader,
-					virtualObjectShader
+					virtualObjectShader,
+					MESH_SCALE*0.2f
 					);
 
 
@@ -607,17 +607,17 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 			final float[] colorCorrectionRgba = new float[4];
 			frame.getLightEstimate().getColorCorrection(colorCorrectionRgba, 0);
 
-			// Visualize tracked points.
-			// Use try-with-resources to automatically release the point cloud.
-			try (PointCloud pointCloud = frame.acquirePointCloud()) {
-				if (pointCloud.getTimestamp() > lastPointCloudTimestamp) {
-					pointCloudVertexBuffer.set(pointCloud.getPoints());
-					lastPointCloudTimestamp = pointCloud.getTimestamp();
-				}
-				Matrix.multiplyMM(modelViewProjectionMatrix, 0, projectionMatrix, 0, viewMatrix, 0);
-				pointCloudShader.setMatrix4("u_ModelViewProjection", modelViewProjectionMatrix);
-				render.draw(pointCloudMesh, pointCloudShader);
-			}
+//			// Visualize tracked points.
+//			// Use try-with-resources to automatically release the point cloud.
+//			try (PointCloud pointCloud = frame.acquirePointCloud()) {
+//				if (pointCloud.getTimestamp() > lastPointCloudTimestamp) {
+//					pointCloudVertexBuffer.set(pointCloud.getPoints());
+//					lastPointCloudTimestamp = pointCloud.getTimestamp();
+//				}
+//				Matrix.multiplyMM(modelViewProjectionMatrix, 0, projectionMatrix, 0, viewMatrix, 0);
+//				pointCloudShader.setMatrix4("u_ModelViewProjection", modelViewProjectionMatrix);
+//				render.draw(pointCloudMesh, pointCloudShader);
+//			}
 
 			// No tracking error at this point. If we detected any plane, then hide the
 			// message UI, otherwise show searchingPlane message.
@@ -653,34 +653,34 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 				drawTower(colorCorrectionRgba);
 				Pose towerPose = game.towerAnchor.getPose();
 
-				// Visualize anchors created by touch.
+				// Отображение целей и пулей вертолёта
 				for (ColoredAnchor coloredAnchor : game.anchors) {
-					coloredAnchor.anchor.toMatrix(modelMatrix, 0);
-					drawMesh(targetMesh, targetColor, colorCorrectionRgba, modelMatrix, shader);
+					if (coloredAnchor.inGame()) {
+						coloredAnchor.anchor.toMatrix(modelMatrix, 0);
+						Matrix.translateM(modelMatrix, 0, 0, 0.02f, 0);
+						Matrix.rotateM(modelMatrix, 0, game.gameTime * 0.001f * 180, 0, 1, 0);
+						drawMesh(targetMesh, targetColor, colorCorrectionRgba, modelMatrix, shader);
 
-					if (coloredAnchor.shooting){
-						Pose.IDENTITY.toMatrix(modelMatrix, 0);
-						Matrix.translateM(modelMatrix,0, coloredAnchor.coreX, coloredAnchor.coreY, coloredAnchor.coreZ  );
-						drawMesh(coreMesh, targetColor, colorCorrectionRgba, modelMatrix, shader);
+						if (coloredAnchor.shooting) {
+							Pose.IDENTITY.toMatrix(modelMatrix, 0);
+							Matrix.translateM(modelMatrix, 0, coloredAnchor.coreX, coloredAnchor.coreY, coloredAnchor.coreZ);
+							drawMesh(coreMesh, targetColor, colorCorrectionRgba, modelMatrix, shader);
+						}
 					}
 				}
 
 				for (Enemy enemy : game.enemies) {
 					if (enemy.state == Enemy.State.Normal){
-						towerPose.toMatrix(modelMatrix, 0);
 
+						float tx = towerPose.tx() + (float) (Math.cos(enemy.angle / 180 * Math.PI) * enemy.x);
+						float ty = towerPose.ty() + enemy.y;
+						float tz = towerPose.tz() - (float) (Math.sin(enemy.angle / 180 * Math.PI) * enemy.x);
+
+						Pose.IDENTITY.toMatrix(modelMatrix, 0);
+						Matrix.translateM(modelMatrix,0, tx, ty, tz);
 						Matrix.rotateM(modelMatrix,0, enemy.angle,0,1,0);
-						Matrix.translateM(modelMatrix,0, enemy.x, enemy.y, enemy.z);
 						drawMesh(enemyMeshs[enemy.meshIndex],enemyColor,colorCorrectionRgba, modelMatrix, shader);
 
-//						float tx =  (float) (Math.cos(enemy.angle/180*Math.PI)*enemy.x);
-//						float ty = towerPose.ty();
-//						float tz = -(float) (Math.sin(enemy.angle/180*Math.PI)*enemy.x);
-//
-//						towerPose.toMatrix(modelMatrix, 0);
-//
-//						Matrix.translateM(modelMatrix,0, tx, enemy.y, tz);
-//						drawMesh(enemyMeshs[2],targetColor,colorCorrectionRgba, modelMatrix, shader);
 					}
 				}
 
@@ -752,15 +752,14 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 		Matrix.multiplyMM(modelMatrix,0, modelMatrix, 0, tempMatrix, 0);
 		Matrix.rotateM(modelMatrix,0, 180f, 0,1,0);
 		Matrix.translateM(modelMatrix,0, 0, 0, 0.4f);
-		Matrix.scaleM(modelMatrix, 0 ,0.2f,0.2f,0.2f);
 	}
 
 	private void drawMesh(Mesh mesh, float[] color, float[] colorCorrectionRgba, float[] modelMatrix, Shader shader) {
 
-		Matrix.multiplyMM(scaledModeMatrix, 0, modelMatrix, 0, scaleMatrix, 0);
+		//Matrix.multiplyMM(scaledModeMatrix, 0, modelMatrix, 0, scaleMatrix, 0);
 
 		// Calculate model/view/projection matrices and view-space light direction
-		Matrix.multiplyMM(modelViewMatrix, 0, viewMatrix, 0, scaledModeMatrix, 0);
+		Matrix.multiplyMM(modelViewMatrix, 0, viewMatrix, 0, modelMatrix, 0);
 		Matrix.multiplyMM(modelViewProjectionMatrix, 0, projectionMatrix, 0, modelViewMatrix, 0);
 		Matrix.multiplyMV(viewLightDirection, 0, viewMatrix, 0, LIGHT_DIRECTION, 0);
 
@@ -785,7 +784,7 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 				// Adding an Anchor tells ARCore that it should track this position in
 				// space. This anchor is created on the Plane to place the 3D model
 				// in the correct position relative both to the world and to the plane.
-				game.addAnchor(new ColoredAnchor(hit.getHitPose()));
+				game.addAnchor(hit.getHitPose());
 				//Todo: Kos 14.11.2020 Нужно стрелять из пушек вертолёта
 				getHelicopterPosition(camera, modelMatrix);
 

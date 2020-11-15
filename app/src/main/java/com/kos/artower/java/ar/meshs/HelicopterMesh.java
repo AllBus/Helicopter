@@ -20,13 +20,13 @@ public class HelicopterMesh {
 	public float[] rotorColor = {22.0f / 255.0f, 50.0f / 255.0f, 22.0f / 255.0f};;
 	public float rotorAngle = 0f;
 	public float rotorTailAngle = 0f;
-	public float[] tailRotorTranslate = {0, 0.05f,-0.38f};
+	public float[] tailRotorTranslate = {0, 0.05f/5f,-0.38f/5f};
 
 	public HelicopterMesh(SampleRender render, String helicopterFile, String helicopterRotorFile, String helicopterTailRotorFile,
-						  Shader helicopterShader, Shader rotorShader) throws IOException {
-		helicopterMesh = Mesh.createFromAsset(render, helicopterFile);
-		helicopterRotorMesh = Mesh.createFromAsset(render, helicopterRotorFile);
-		helicopterRotorTailMesh = Mesh.createFromAsset(render, helicopterTailRotorFile);
+						  Shader helicopterShader, Shader rotorShader, float meshScale) throws IOException {
+		helicopterMesh = Mesh.createFromAsset(render, helicopterFile, meshScale);
+		helicopterRotorMesh = Mesh.createFromAsset(render, helicopterRotorFile, meshScale);
+		helicopterRotorTailMesh = Mesh.createFromAsset(render, helicopterTailRotorFile, meshScale);
 
 		this.shader = helicopterShader;
 		this.rotorShader = rotorShader;

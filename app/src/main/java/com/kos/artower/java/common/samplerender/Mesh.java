@@ -25,6 +25,8 @@ import de.javagl.obj.ObjUtils;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 
@@ -128,7 +130,7 @@ public class Mesh implements Closeable {
    * coordinates (location 0, vec3), texture coordinates (location 1, vec2), and vertex normals
    * (location 2, vec3).
    */
-  public static Mesh createFromAsset(SampleRender render, String assetFileName) throws IOException {
+  public static Mesh createFromAsset(SampleRender render, String assetFileName, float scale) throws IOException {
     try (InputStream inputStream = render.getAssets().open(assetFileName)) {
 
       Obj obj = ObjUtils.convertToRenderable(ObjReader.read(inputStream));
@@ -139,8 +141,19 @@ public class Mesh implements Closeable {
       FloatBuffer textureCoordinates = ObjData.getTexCoords(obj, /*dimensions=*/ 2);
       FloatBuffer normals = ObjData.getNormals(obj);
 
+
+      int size = obj.getNumVertices() * 3;
+      FloatBuffer scaleCoordBuffer =  ByteBuffer.allocateDirect(size * 4)
+              .order(ByteOrder.nativeOrder())
+              .asFloatBuffer();
+
+      localCoordinates.rewind();
+      for (int i=0;i<size;i++) {
+        scaleCoordBuffer.put(localCoordinates.get()*scale);
+      }
+
       VertexBuffer[] vertexBuffers = {
-        new VertexBuffer(render, 3, localCoordinates),
+        new VertexBuffer(render, 3, scaleCoordBuffer),
         new VertexBuffer(render, 2, textureCoordinates),
         new VertexBuffer(render, 3, normals),
       };

@@ -8,8 +8,6 @@ import com.google.ar.core.Anchor;
 import com.google.ar.core.Pose;
 import com.kos.artower.java.ar.ColoredAnchor;
 
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.Random;
 
 public class Game {
@@ -25,26 +23,23 @@ public class Game {
 	public int readyState = FIND_SURFACE;
 
 
-	public float coreSpeed = 0.02f;//Скорость полёта пули
 	public long globalTime = 0L;
 	public long frameDuration = 0L;
 	public long gameTime = 0L;
 	public long score = 0L;
 	public boolean scoreIsUpdated = false; //Флаг что значение очков изменилось
 
-	public float coreRadius = 0.02f; //Радиус пули
-	public float coreTargetRadius = 0.08f; //Радиус взрыва от пули
 
-	public ArrayList<ColoredAnchor> anchors = new ArrayList<>(MAX_TARGETS);
+	public ColoredAnchor[] anchors = new ColoredAnchor[MAX_TARGETS];
 
 	@NonNull
 	public Tower tower = new Tower();
 
 	@NonNull
-	public Enemy[] enemies = new Enemy[MAX_ENEMIES];
+	public CoreInfo core = new CoreInfo();
 
 	@NonNull
-	public Enemy[] cores = new Enemy[MAX_CORES];
+	public Enemy[] enemies = new Enemy[MAX_ENEMIES];
 
 	private float waveEnemyTime = 20; //Время в секундах
 	private int waveNumber = 1;
@@ -73,24 +68,22 @@ public class Game {
 		for (int i = 0; i < enemies.length; i++) {
 			enemies[i] = new Enemy();
 		}
-		for (int i = 0; i < cores.length; i++) {
-			cores[i] = new Enemy();
+
+
+		for (int i = 0; i < anchors.length; i++) {
+			anchors[i] = new ColoredAnchor();
 		}
 
 		tower = new Tower();
+		core = new CoreInfo();
 
 		waveNumber = 0;
 		waveEnemyTime = 20; //Время в секундах
 		score = 0;
 
 		shotCounter = 0;
-		coreSpeed = 0.8f;
 		scoreIsUpdated = true;
-		clearAnchors();
-	}
 
-	private void clearAnchors() {
-		anchors.clear();
 	}
 
 	public long updateTime() {
@@ -107,29 +100,18 @@ public class Game {
 		moveCores();
 		intersectEnemies();
 
-		removeAnchors();
 
 	}
 
-	private void removeAnchors() {
-		Iterator<ColoredAnchor> iter = anchors.iterator();
-		while(iter.hasNext()){
-			ColoredAnchor anchor =  iter.next();
-			if (anchor.destroy){
-				iter.remove();
-			}
-		}
-	}
 
 	private void intersectEnemies() {
-		if (towerAnchor!=null) {
+		if (towerAnchor != null) {
 			Pose towerPose = towerAnchor.getPose();
+
+			intersectShot(towerPose);
 			for (Enemy enemy : enemies) {
 				if (enemy.inGame()) {
-					if (intersectShot(towerPose, enemy)) {
-						enemy.destroy();
-						addScore(enemy.score);
-					} else if (enemy.x < tower.radius) {
+					if (enemy.x < tower.radius) {
 						changeHealth(-enemy.power);
 						enemy.destroy();
 					}
@@ -141,45 +123,58 @@ public class Game {
 
 	private void intersectTowerAnchors(Pose towerPose) {
 		for (ColoredAnchor anchor : anchors) {
-			float dx = anchor.coreX - towerPose.tx();
-			float dz = anchor.coreZ - towerPose.tz();
+			if (anchor.isShooting()) {
+				float dx = anchor.coreX - towerPose.tx();
+				float dz = anchor.coreZ - towerPose.tz();
 
-			if (dx*dx+dz*dz< (tower.minRadius+coreRadius) *(tower.minRadius+coreRadius)){
+				if (dx * dx + dz * dz < (tower.minRadius + core.radius) * (tower.minRadius + core.radius)) {
 
-				if (anchor.coreY>towerPose.ty() && anchor.coreY<tower.height){
-					changeHealth(-anchor.power);
-					addScore(1);
-					anchor.destroy=true;
+
+					if (anchor.coreY > towerPose.ty() && anchor.coreY < tower.height) {
+						changeHealth(-anchor.power);
+						addScore(1);
+						anchor.destroy();
+					}
 				}
 			}
 		}
 	}
 
-	private boolean intersectShot(Pose towerPose, Enemy enemy) {
-		if (towerAnchor!=null) {
-
-			float tx = towerPose.tx() + (float) (Math.cos(enemy.angle/180*Math.PI)*enemy.x);
-			float ty = towerPose.ty();
-			float tz = towerPose.tz() - (float) (Math.sin(enemy.angle/180*Math.PI)*enemy.x);
-
+	private void intersectShot(Pose towerPose) {
+		if (towerAnchor != null) {
 			for (ColoredAnchor anchor : anchors) {
-				float dx = anchor.coreX - tx;
-				float dy = Math.abs(anchor.coreY - ty);
-				float dz = anchor.coreZ - tz;
+				if (anchor.isShooting()) {
+					for (Enemy enemy : enemies) {
+						if (enemy.inGame()) {
 
-				float powerRadius =  (dy<coreRadius)? coreTargetRadius: coreRadius;
+							float tx = towerPose.tx() + (float) (Math.cos(enemy.angle / 180 * Math.PI) * enemy.x);
+							float ty = towerPose.ty();
+							float tz = towerPose.tz() - (float) (Math.sin(enemy.angle / 180 * Math.PI) * enemy.x);
 
-				if (dx*dx+dz*dz+dy*dy< (powerRadius) *(powerRadius)){
-					anchor.destroy=true;
-					return true;
-				}
+
+							float dx = anchor.coreX - tx;
+							float dy = Math.abs(anchor.coreY - ty);
+							float dz = anchor.coreZ - tz;
+
+							float powerRadius = (dy < core.radius) ? core.targetRadius : core.radius+enemy.radius;
+
+							if (dx * dx + dz * dz < (powerRadius) * (powerRadius)) {
+								if (dy < powerRadius) {
+									anchor.destroy();
+									enemy.destroy();
+									addScore(enemy.score);
+								}
+							}
+						}//enemy in game
+					}
+				}//anchr shooting
 			}
 		}
-		return false;
+
 	}
 
 	private void addScore(int score) {
-		this.score+=score;
+		this.score += score;
 		scoreIsUpdated = true;
 	}
 
@@ -187,26 +182,26 @@ public class Game {
 		float f = frameDuration * 0.001f;
 
 		for (ColoredAnchor anchor : anchors) {
-			if (anchor.shooting){
+			if (anchor.isShooting()) {
 				float dx = anchor.coreX - anchor.anchor.tx();
 				float dy = anchor.coreY - anchor.anchor.ty();
 				float dz = anchor.coreZ - anchor.anchor.tz();
 
 
-				float distance = f*anchor.speed;
+				float distance = f * anchor.speed;
 
-				float sum = dx*dx+dy*dy+dz*dz;
-				float d2 = distance*distance;
+				float sum = dx * dx + dy * dy + dz * dz;
+				float d2 = distance * distance;
 
-				if (sum<=d2){
+				if (sum <= d2) {
 					anchor.coreX = anchor.anchor.tx();
 					anchor.coreY = anchor.anchor.ty();
 					anchor.coreZ = anchor.anchor.tz();
-					anchor.destroy = true;
-				}else {
-					anchor.coreX = anchor.coreX-Math.min(dx, distance);
-					anchor.coreY = anchor.coreY-Math.min(dy,distance);
-					anchor.coreZ = anchor.coreZ-Math.min(dz,distance);
+					anchor.destroy();
+				} else {
+					anchor.coreX = anchor.coreX - Math.min(dx, distance);
+					anchor.coreY = anchor.coreY - Math.min(dy, distance);
+					anchor.coreZ = anchor.coreZ - Math.min(dz, distance);
 				}
 			}
 
@@ -242,10 +237,10 @@ public class Game {
 			waveEnemyTime += 0.100f;
 			final int enemyInWave = Math.min(3 + waveNumber * 2, MAX_ENEMIES);
 
-			float waitTime = waveEnemyTime/enemyInWave;
+			float waitTime = waveEnemyTime / enemyInWave;
 
 			for (int i = 0; i < enemyInWave; i++) {
-				addEnemy(0,waitTime*i+r.nextFloat()*waitTime);
+				addEnemy(0, waitTime * i + r.nextFloat() * waitTime);
 			}
 		}
 	}
@@ -291,29 +286,31 @@ public class Game {
 		resetGame();
 	}
 
-	public void shot(Pose position){
+	public void shot(Pose position) {
 
 		for (ColoredAnchor anchor : anchors) {
-			if (!anchor.shooting){
+			if (!anchor.shooting) {
 				anchor.shooting = true;
 
 				anchor.coreX = position.tx();
 				anchor.coreY = position.ty();
 				anchor.coreZ = position.tz();
-				Log.d("Kos", "Kos shotsp "+anchor.coreX+" "+anchor.coreY+" "+anchor.coreZ+" " );
-				Log.d("Kos", "Kos anchor "+anchor.anchor.tx()+" "+anchor.anchor.ty()+" "+anchor.anchor.tz()+" " );
+				Log.d("Kos", "Kos shotsp " + anchor.coreX + " " + anchor.coreY + " " + anchor.coreZ + " ");
+				Log.d("Kos", "Kos anchor " + anchor.anchor.tx() + " " + anchor.anchor.ty() + " " + anchor.anchor.tz() + " ");
 
-				anchor.speed = coreSpeed;
+				anchor.speed = core.speed;
 			}
 		}
 	}
 
-	public void addAnchor(ColoredAnchor coloredAnchor) {
-		if (anchors.size() >= MAX_TARGETS) {
-			anchors.remove(0);
+	public void addAnchor(Pose pose) {
+
+		for (ColoredAnchor anchor : anchors) {
+			if (!anchor.inGame()) {
+				anchor.setup(pose);
+				return;
+			}
 		}
 
-
-		anchors.add(coloredAnchor);
 	}
 }

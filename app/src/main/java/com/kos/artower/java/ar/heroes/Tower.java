@@ -9,9 +9,9 @@ public class Tower {
 
 	public Tower() {
 		maxRadius = 0.2f;
-		minRadius = 0.08f;
+		minRadius = 0.05f;
 		radius = maxRadius;
-		height = 0.4f;
+		height = 0.38f;
 		health = 100f;
 
 	}

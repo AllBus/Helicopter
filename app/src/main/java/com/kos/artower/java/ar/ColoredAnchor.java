@@ -7,9 +7,9 @@ import com.google.ar.core.Trackable;
 // Anchors created from taps used for object placing with a given color.
 public class ColoredAnchor {
 
-	public final Pose anchor;
+	public Pose anchor = Pose.IDENTITY;
 	public boolean shooting = false;
-	public boolean destroy = false;
+	private boolean destroy = true;
 	//Координата пули
 	public float coreX = 0f;
 	public float coreY = 0f;
@@ -18,8 +18,30 @@ public class ColoredAnchor {
 	public float speed = 1.f;
 	public float power = 10f;
 
-	public ColoredAnchor(Pose pose) {
-		this.anchor = pose;
+	public ColoredAnchor() {
+	}
 
+	public void setup(Pose pose){
+		anchor = pose;
+		shooting = false;
+		destroy = false;
+		//Координата пули
+		coreX = 0f;
+		coreY = 0f;
+		coreZ = 0f;
+
+		speed = 1.f;
+		power = 10f;
+	}
+
+	public boolean inGame(){
+		return !destroy;
+	}
+	public boolean isShooting(){
+		return inGame() && shooting;
+	}
+
+	public void destroy(){
+		this.destroy = true;
 	}
 }

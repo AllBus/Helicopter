@@ -16,7 +16,7 @@
 -->
 <resources>
   <string translatable="false" name="app_name">Вертолётик AR</string>
-  <string translatable="false" name="depth_use_explanation">When Depth is enabled on supported devices, virtual objects adapt to the environment by blending in with the real world.</string>
+  <string translatable="false" name="depth_use_explanation">Когда на поддерживаемых устройствах включена функция «Глубина», виртуальные объекты адаптируются к окружающей среде, смешиваясь с реальным миром.</string>
   <string translatable="false" name="button_text_enable_depth">Включить</string>
   <string translatable="false" name="button_text_disable_depth">Отключить</string>
   <string translatable="false" name="options_title_with_depth">Ваше устройство поддерживает глубину</string>

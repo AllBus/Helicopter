@@ -13,9 +13,9 @@ public class TowerMesh {
 	public Shader wallShader;
 
 	public TowerMesh(SampleRender render, String towerFile, String wallFile,
-					 Shader towerShader, Shader wallShader) throws IOException {
-		mesh = Mesh.createFromAsset(render, towerFile);
-		wallMesh = Mesh.createFromAsset(render, wallFile);
+					 Shader towerShader, Shader wallShader, float meshScale) throws IOException {
+		mesh = Mesh.createFromAsset(render, towerFile, meshScale);
+		wallMesh = Mesh.createFromAsset(render, wallFile, meshScale);
 
 		this.shader = towerShader;
 		this.wallShader = wallShader;

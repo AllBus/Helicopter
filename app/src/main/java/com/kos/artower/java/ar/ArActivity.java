@@ -166,6 +166,7 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 	private Mesh canonMesh;
 	private Mesh coreMesh;
 	private Mesh targetMesh;
+	private Mesh powerMesh;
 
 	private TowerMesh tower;
 	private HelicopterMesh helicopter;
@@ -173,6 +174,7 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 	private Mesh[] enemyMeshs;
 
 	private Shader targetShader;
+	private Shader powerShader;
 	private Shader virtualObjectShader;
 	private Shader virtualObjectDepthShader;
 
@@ -450,8 +452,14 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 			Texture targetTexture =
 					Texture.createFromAsset(render, "models/target.png", Texture.WrapMode.CLAMP_TO_EDGE);
 
-			targetShader = createVirtualObjectShader(
-					render, targetTexture, /*use_depth_for_occlusion=*/ false);
+			targetShader = createTargetShader(
+					render, targetTexture, /*use_depth_for_occlusion=*/ true);
+
+			Texture powerTexture =
+					Texture.createFromAsset(render, "models/power.png", Texture.WrapMode.CLAMP_TO_EDGE);
+
+			powerShader = createPowerShader(
+					render, powerTexture, /*use_depth_for_occlusion=*/ true);
 
 			//Meshs
 			enemyOneMesh = Mesh.createFromAsset(render, "models/enemy_one.obj",MESH_SCALE);
@@ -460,6 +468,7 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 			canonMesh = Mesh.createFromAsset(render, "models/canon.obj", MESH_SCALE);
 			coreMesh = Mesh.createFromAsset(render, "models/core.obj", MESH_SCALE);
 			targetMesh = Mesh.createFromAsset(render, "models/target.obj", MESH_SCALE);
+			powerMesh = Mesh.createFromAsset(render, "models/power.obj", 2f);
 
 			tower = new TowerMesh(render,"models/tower.obj", "models/tower_wall.obj", virtualObjectShader, virtualObjectShader, MESH_SCALE);
 			helicopter = new HelicopterMesh(render,
@@ -665,23 +674,74 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 
 				//Is In Game
 				drawTower(colorCorrectionRgba);
-				Pose towerPose = game.towerAnchor.getPose();
 
 				// Отображение целей и пулей вертолёта
 				for (ColoredAnchor coloredAnchor : game.anchors) {
 					if (coloredAnchor.inGame()) {
-						coloredAnchor.anchor.toMatrix(modelMatrix, 0);
-						Matrix.translateM(modelMatrix, 0, 0, 0.02f, 0);
-						Matrix.rotateM(modelMatrix, 0, game.gameTime * 0.001f * 180, 0, 1, 0);
-						drawMesh(targetMesh, targetColor, colorCorrectionRgba, modelMatrix, targetShader);
+
+
 
 						if (coloredAnchor.isShooting()) {
 							Pose.IDENTITY.toMatrix(modelMatrix, 0);
 							Matrix.translateM(modelMatrix, 0, coloredAnchor.coreX, coloredAnchor.coreY, coloredAnchor.coreZ);
 							drawMesh(coreMesh, targetColor, colorCorrectionRgba, modelMatrix, shader);
 						}
+
+						if (coloredAnchor.isPower()){
+							float time = coloredAnchor.powerAnimationTime;
+							if (time<coloredAnchor.maxPowerTime){
+								float scale = time/coloredAnchor.maxPowerTime *game.core.targetRadius;
+								Pose.IDENTITY.toMatrix(modelMatrix, 0);
+								Matrix.translateM(modelMatrix, 0, coloredAnchor.coreX, coloredAnchor.coreY, coloredAnchor.coreZ);
+								Matrix.scaleM(modelMatrix, 0, scale, scale, scale);
+								drawTargetMesh(powerMesh, targetColor, colorCorrectionRgba, modelMatrix, powerShader, time/coloredAnchor.maxPowerTime);
+							}
+
+						}else{
+							coloredAnchor.anchor.toMatrix(modelMatrix, 0);
+							Matrix.translateM(modelMatrix, 0, 0, 0.02f, 0);
+							Matrix.rotateM(modelMatrix, 0, game.gameTime * 0.001f * 180, 0, 1, 0);
+							drawTargetMesh(targetMesh, targetColor, colorCorrectionRgba, modelMatrix, targetShader, (game.gameTime*0.001f)%1.0f);
+						}
 					}
 				}
+
+//
+//				{
+//					ColoredAnchor anchor = game.anchors[0];
+//					anchor.anchor.toMatrix(modelMatrix, 0);
+//					Matrix.translateM(modelMatrix, 0, 0, 0.02f, 0);
+//					Matrix.rotateM(modelMatrix, 0, game.gameTime * 0.001f * 180, 0, 1, 0);
+//
+//
+//					boolean intersect = false;
+//
+//					for (Enemy enemy : game.enemies) {
+//						if (enemy.inGame()) {
+//
+//							float tx = enemy.x;
+//							float ty = enemy.y;
+//							float tz = enemy.z;
+//
+//
+//							float dx = anchor.anchor.tx() - tx;
+//							float dy = Math.abs(anchor.anchor.ty() - ty);
+//							float dz = anchor.anchor.tz() - tz;
+//
+//							float powerRadius  = game.core.targetRadius+enemy.radius;
+//
+//							if (dx * dx + dz * dz < (powerRadius) * (powerRadius)) {
+//								if (dy < powerRadius) {
+//									intersect = true;
+//								}
+//							}
+//						}//enemy in game
+//					}
+//
+//					drawTargetMesh(targetMesh, intersect? enemyColor : targetColor, colorCorrectionRgba, modelMatrix, targetShader , 1f);
+//
+//
+//				}
 
 				for (Enemy enemy : game.enemies) {
 					if (enemy.state == Enemy.State.Normal){
@@ -784,6 +844,26 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 				.set4("u_ColorCorrection", colorCorrectionRgba)
 				.set4("u_ViewLightDirection", viewLightDirection)
 				.set3("u_AlbedoColor", color);
+		render.draw(mesh, shader);
+	}
+
+	private void drawTargetMesh(Mesh mesh, float[] color, float[] colorCorrectionRgba, float[] modelMatrix, Shader shader, float time) {
+
+		//Matrix.multiplyMM(scaledModeMatrix, 0, modelMatrix, 0, scaleMatrix, 0);
+
+		// Calculate model/view/projection matrices and view-space light direction
+		Matrix.multiplyMM(modelViewMatrix, 0, viewMatrix, 0, modelMatrix, 0);
+		Matrix.multiplyMM(modelViewProjectionMatrix, 0, projectionMatrix, 0, modelViewMatrix, 0);
+		Matrix.multiplyMV(viewLightDirection, 0, viewMatrix, 0, LIGHT_DIRECTION, 0);
+
+		// Update shader properties and draw
+		shader
+				.setMatrix4("u_ModelView", modelViewMatrix)
+				.setMatrix4("u_ModelViewProjection", modelViewProjectionMatrix)
+				.set4("u_ColorCorrection", colorCorrectionRgba)
+				.set4("u_ViewLightDirection", viewLightDirection)
+				.set3("u_AlbedoColor", color)
+				.set1("u_time", time);
 		render.draw(mesh, shader);
 	}
 
@@ -990,6 +1070,47 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 
 		return uvTransform;
 	}
+
+	private static Shader createTargetShader(
+			SampleRender render, Texture virtualObjectTexture, boolean useDepthForOcclusion)
+			throws IOException {
+		return Shader.createFromAssets(
+				render,
+				"shaders/target.vert",
+				"shaders/target.frag",
+				new HashMap<String, String>() {
+					{
+						put("USE_DEPTH_FOR_OCCLUSION", useDepthForOcclusion ? "1" : "0");
+					}
+				})
+				.setBlend(Shader.BlendFactor.SRC_ALPHA, Shader.BlendFactor.ONE_MINUS_SRC_ALPHA)
+				.setTexture("u_AlbedoTexture", virtualObjectTexture)
+				.set1("u_UpperDiffuseIntensity", 1.0f)
+				.set1("u_LowerDiffuseIntensity", 0.5f)
+				.set1("u_SpecularIntensity", 0.2f)
+				.set1("u_SpecularPower", 8.0f);
+	}
+
+	private static Shader createPowerShader(
+			SampleRender render, Texture virtualObjectTexture, boolean useDepthForOcclusion)
+			throws IOException {
+		return Shader.createFromAssets(
+				render,
+				"shaders/power.vert",
+				"shaders/power.frag",
+				new HashMap<String, String>() {
+					{
+						put("USE_DEPTH_FOR_OCCLUSION", useDepthForOcclusion ? "1" : "0");
+					}
+				})
+				.setBlend(Shader.BlendFactor.SRC_ALPHA, Shader.BlendFactor.ONE_MINUS_SRC_ALPHA)
+				.setTexture("u_AlbedoTexture", virtualObjectTexture)
+				.set1("u_UpperDiffuseIntensity", 1.0f)
+				.set1("u_LowerDiffuseIntensity", 0.5f)
+				.set1("u_SpecularIntensity", 0.2f)
+				.set1("u_SpecularPower", 8.0f);
+	}
+
 
 	private static Shader createVirtualObjectShader(
 			SampleRender render, Texture virtualObjectTexture, boolean useDepthForOcclusion)

@@ -9,7 +9,8 @@ public class ColoredAnchor {
 
 	private static final int STATE_DESTROY = 0;
 	private static final int STATE_READY_DESTROY = 1;
-	private static final int STATE_NORMAL = 2;
+	private static final int STATE_START_DESTROY = 2;
+	private static final int STATE_NORMAL = 3;
 
 	public Pose anchor = Pose.IDENTITY;
 	private boolean shooting = false;
@@ -21,6 +22,9 @@ public class ColoredAnchor {
 
 	public float speed = 1.f;
 	public float power = 10f;
+
+	public float powerAnimationTime = 0;
+	public float maxPowerTime = 0.3f;
 
 	public ColoredAnchor() {
 	}
@@ -36,23 +40,32 @@ public class ColoredAnchor {
 
 		speed = 1.f;
 		power = 10f;
+		powerAnimationTime =  0;
+		maxPowerTime = 0.3f;
 	}
 
 	public boolean inGame(){
 		return state > STATE_DESTROY;
 	}
 	public boolean isShooting(){
-		return inGame() && shooting;
+		return inGame() && shooting && !isPower();
+	}
+	public boolean isPower(){ return state == STATE_START_DESTROY;
 	}
 
-
 	public boolean isReadyDestroy(){
-		return 	this.state == STATE_READY_DESTROY;
+		return this.state == STATE_READY_DESTROY;
 	}
 
 	public void destroy(){
 		this.state = STATE_DESTROY;
 		this.shooting = false;
+	}
+
+	public void startDestroy(){
+		this.state = STATE_START_DESTROY;
+		shooting = false;
+		powerAnimationTime =  0;
 	}
 
 	public void readyDestroy(){
@@ -62,6 +75,8 @@ public class ColoredAnchor {
 	public void setShooting(boolean value){
 		this.shooting =  value;
 	}
+
+
 
 
 }

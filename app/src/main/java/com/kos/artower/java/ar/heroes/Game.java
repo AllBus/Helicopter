@@ -1,5 +1,7 @@
 package com.kos.artower.java.ar.heroes;
 
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 
 import com.google.ar.core.Anchor;
@@ -8,6 +10,7 @@ import com.kos.artower.java.ar.ColoredAnchor;
 import com.kos.artower.java.ar.heroes.moves.HealthEnemyMover;
 import com.kos.artower.java.ar.heroes.moves.IEnemyMover;
 import com.kos.artower.java.ar.heroes.moves.LampEnemyMover;
+import com.kos.artower.java.ar.heroes.moves.TwoEnemyMover;
 
 import java.util.Random;
 
@@ -118,7 +121,8 @@ public class Game {
 		if (towerAnchor != null) {
 			Pose towerPose = towerAnchor.getPose();
 
-			intersectShot(towerPose);
+			intersectShot();
+
 			for (Enemy enemy : enemies) {
 				if (enemy.inGame()) {
 
@@ -137,6 +141,7 @@ public class Game {
 
 	private void intersectTowerAnchors(Pose towerPose) {
 		for (ColoredAnchor anchor : anchors) {
+			anchor.destroy();
 			if (anchor.isShooting()) {
 				float dx = anchor.coreX - towerPose.tx();
 				float dz = anchor.coreZ - towerPose.tz();
@@ -146,17 +151,17 @@ public class Game {
 					if (anchor.coreY > towerPose.ty() && anchor.coreY < towerPose.ty() + tower.height) {
 						changeHealth(-anchor.power);
 						addScore(1);
-						anchor.destroy();
+						anchor.startDestroy();
 					}
 				}
 			}
 		}
 	}
 
-	private void intersectShot(Pose towerPose) {
+	private void intersectShot() {
 		if (towerAnchor != null) {
 			for (ColoredAnchor anchor : anchors) {
-				if (anchor.isShooting()) {
+				if (anchor.isShooting() || anchor.isPower()) {
 					for (Enemy enemy : enemies) {
 						if (enemy.inGame()) {
 
@@ -169,11 +174,13 @@ public class Game {
 							float dy = Math.abs(anchor.coreY - ty);
 							float dz = anchor.coreZ - tz;
 
-							float powerRadius = (dy < core.radius) ? core.targetRadius : core.radius+enemy.radius;
+							float powerRadius =(anchor.isPower())?
+									(core.targetRadius*anchor.powerAnimationTime/anchor.maxPowerTime+enemy.radius)
+									:(core.radius+enemy.radius);
 
 							if (dx * dx + dz * dz < (powerRadius) * (powerRadius)) {
 								if (dy < powerRadius) {
-									anchor.readyDestroy();
+									anchor.startDestroy();
 									enemy.destroy();
 									addScore(enemy.score);
 								}
@@ -181,6 +188,8 @@ public class Game {
 						}//enemy in game
 					}
 				}//anchr shooting
+
+
 				if (anchor.isReadyDestroy()){
 					anchor.destroy();
 				}
@@ -198,6 +207,13 @@ public class Game {
 		float f = frameDuration * 0.001f;
 
 		for (ColoredAnchor anchor : anchors) {
+
+			if (anchor.isPower()){
+				anchor.powerAnimationTime+= f;
+				if (anchor.powerAnimationTime>anchor.maxPowerTime)
+					anchor.readyDestroy();
+			}
+
 			if (anchor.isShooting()) {
 				float dx = anchor.coreX - anchor.anchor.tx();
 				float dy = anchor.coreY - anchor.anchor.ty();
@@ -214,13 +230,14 @@ public class Game {
 					anchor.coreX = anchor.anchor.tx();
 					anchor.coreY = anchor.anchor.ty();
 					anchor.coreZ = anchor.anchor.tz();
-					anchor.readyDestroy();
+					anchor.startDestroy();
 				} else {
 					anchor.coreX = anchor.coreX - dx*distance/delta;
 					anchor.coreY = anchor.coreY - dy*distance/delta;
 					anchor.coreZ = anchor.coreZ - dz*distance/delta;
 				}
 			}
+
 
 		}
 
@@ -316,7 +333,7 @@ public class Game {
 	public void shot(Pose position) {
 
 		for (ColoredAnchor anchor : anchors) {
-			if (anchor.inGame() && !anchor.isShooting()) {
+			if (anchor.inGame() && !anchor.isShooting() && !anchor.isPower()) {
 				anchor.coreX = position.tx();
 				anchor.coreY = position.ty();
 				anchor.coreZ = position.tz();

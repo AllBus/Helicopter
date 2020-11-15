@@ -172,6 +172,7 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 
 	private Mesh[] enemyMeshs;
 
+	private Shader targetShader;
 	private Shader virtualObjectShader;
 	private Shader virtualObjectDepthShader;
 
@@ -189,7 +190,11 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 	private final float[] viewLightDirection = new float[4]; // view x LIGHT_DIRECTION
 	private final float[] towerColor = {66.0f / 255.0f, 255.0f / 255.0f, 244.0f / 255.0f};
 	private final float[] enemyColor = {255.0f / 255.0f, 255.0f / 255.0f, 123.0f / 255.0f};
+	private final float[] healthColor = {122.0f / 255.0f, 255.0f / 255.0f, 123.0f / 255.0f};
+
 	private final float[] targetColor = {240.0f / 255.0f, 22.0f / 255.0f, 22.0f / 255.0f};
+
+	private final float[][] enemiesColors = new float[5][];
 
 	private float centerPositionX = 0.0f;
 	private float centerPositionY = 0.0f;
@@ -442,6 +447,12 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 			Shader helicopterShader = createVirtualObjectShader(
 					render, helicopterTexture, /*use_depth_for_occlusion=*/ false);
 
+			Texture targetTexture =
+					Texture.createFromAsset(render, "models/target.png", Texture.WrapMode.CLAMP_TO_EDGE);
+
+			targetShader = createVirtualObjectShader(
+					render, targetTexture, /*use_depth_for_occlusion=*/ false);
+
 			//Meshs
 			enemyOneMesh = Mesh.createFromAsset(render, "models/enemy_one.obj",MESH_SCALE);
 			enemyTwoMesh = Mesh.createFromAsset(render, "models/enemy_two.obj",MESH_SCALE);
@@ -470,6 +481,11 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 			enemyMeshs[4] = coreMesh;
 
 
+			enemiesColors[0] = enemyColor;
+			enemiesColors[1] = enemyColor;
+			enemiesColors[2] = healthColor;
+			enemiesColors[3] = enemyColor;
+			enemiesColors[4] = enemyColor;
 
 		} catch (IOException e) {
 			Log.e(TAG, "Failed to read an asset file", e);
@@ -500,11 +516,9 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 		game.updateTime();
 		game.moveObjects();
 
-		//Todo: Kos 15.11.2020 Нужно выполнить в главном потоке
-//		if (game.scoreIsUpdated){
-//
-//			updateScore();
-//		}
+		if (game.scoreIsUpdated){
+			runOnUiThread(this::updateScore);
+		}
 
 		try {
 			// Obtain the current frame from ARSession. When the configuration is set to
@@ -659,7 +673,7 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 						coloredAnchor.anchor.toMatrix(modelMatrix, 0);
 						Matrix.translateM(modelMatrix, 0, 0, 0.02f, 0);
 						Matrix.rotateM(modelMatrix, 0, game.gameTime * 0.001f * 180, 0, 1, 0);
-						drawMesh(targetMesh, targetColor, colorCorrectionRgba, modelMatrix, shader);
+						drawMesh(targetMesh, targetColor, colorCorrectionRgba, modelMatrix, targetShader);
 
 						if (coloredAnchor.isShooting()) {
 							Pose.IDENTITY.toMatrix(modelMatrix, 0);
@@ -672,14 +686,14 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 				for (Enemy enemy : game.enemies) {
 					if (enemy.state == Enemy.State.Normal){
 
-						float tx = towerPose.tx() + (float) (Math.cos(enemy.angle / 180 * Math.PI) * enemy.x);
-						float ty = towerPose.ty() + enemy.y;
-						float tz = towerPose.tz() - (float) (Math.sin(enemy.angle / 180 * Math.PI) * enemy.x);
+//						float tx = towerPose.tx() + (float) (Math.cos(enemy.angle / 180 * Math.PI) * enemy.x);
+//						float ty = towerPose.ty() + enemy.y;
+//						float tz = towerPose.tz() - (float) (Math.sin(enemy.angle / 180 * Math.PI) * enemy.x);
 
 						Pose.IDENTITY.toMatrix(modelMatrix, 0);
-						Matrix.translateM(modelMatrix,0, tx, ty, tz);
+						Matrix.translateM(modelMatrix,0, enemy.x, enemy.y, enemy.z);
 						Matrix.rotateM(modelMatrix,0, enemy.angle,0,1,0);
-						drawMesh(enemyMeshs[enemy.meshIndex],enemyColor,colorCorrectionRgba, modelMatrix, shader);
+						drawMesh(enemyMeshs[enemy.meshIndex],enemiesColors[enemy.meshIndex],colorCorrectionRgba, modelMatrix, shader);
 
 					}
 				}

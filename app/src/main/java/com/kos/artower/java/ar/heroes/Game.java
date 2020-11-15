@@ -1,12 +1,13 @@
 package com.kos.artower.java.ar.heroes;
 
-import android.util.Log;
-
 import androidx.annotation.NonNull;
 
 import com.google.ar.core.Anchor;
 import com.google.ar.core.Pose;
 import com.kos.artower.java.ar.ColoredAnchor;
+import com.kos.artower.java.ar.heroes.moves.HealthEnemyMover;
+import com.kos.artower.java.ar.heroes.moves.IEnemyMover;
+import com.kos.artower.java.ar.heroes.moves.LampEnemyMover;
 
 import java.util.Random;
 
@@ -28,6 +29,9 @@ public class Game {
 	public long gameTime = 0L;
 	public long score = 0L;
 	public boolean scoreIsUpdated = false; //Флаг что значение очков изменилось
+
+
+	public IEnemyMover[] movers = new IEnemyMover[5];
 
 
 	public ColoredAnchor[] anchors = new ColoredAnchor[MAX_TARGETS];
@@ -53,6 +57,12 @@ public class Game {
 	public Random r = new Random(System.currentTimeMillis() * 23);
 
 	public Game() {
+		movers[0] = new LampEnemyMover();
+		movers[1] = new LampEnemyMover();
+		movers[2] = new HealthEnemyMover();
+		movers[3] = new LampEnemyMover();
+		movers[4] = new LampEnemyMover();
+
 		resetGame();
 
 	}
@@ -111,7 +121,11 @@ public class Game {
 			intersectShot(towerPose);
 			for (Enemy enemy : enemies) {
 				if (enemy.inGame()) {
-					if (enemy.x < tower.radius) {
+
+					float dx = enemy.x - towerPose.tx();
+					float dz = enemy.z - towerPose.tz();
+					float distance = (float) Math.sqrt(dx*dx+dz*dz);
+					if (distance<enemy.radius+tower.radius) {
 						changeHealth(-enemy.power);
 						enemy.destroy();
 					}
@@ -129,8 +143,7 @@ public class Game {
 
 				if (dx * dx + dz * dz < (tower.minRadius + core.radius) * (tower.minRadius + core.radius)) {
 
-
-					if (anchor.coreY > towerPose.ty() && anchor.coreY < tower.height) {
+					if (anchor.coreY > towerPose.ty() && anchor.coreY < towerPose.ty() + tower.height) {
 						changeHealth(-anchor.power);
 						addScore(1);
 						anchor.destroy();
@@ -147,9 +160,9 @@ public class Game {
 					for (Enemy enemy : enemies) {
 						if (enemy.inGame()) {
 
-							float tx = towerPose.tx() + (float) (Math.cos(enemy.angle / 180 * Math.PI) * enemy.x);
-							float ty = towerPose.ty();
-							float tz = towerPose.tz() - (float) (Math.sin(enemy.angle / 180 * Math.PI) * enemy.x);
+							float tx = enemy.x;
+							float ty = enemy.y;
+							float tz = enemy.z;
 
 
 							float dx = anchor.coreX - tx;
@@ -215,21 +228,16 @@ public class Game {
 
 	private void moveEnemies() {
 		float f = frameDuration * 0.001f;
+		if (towerAnchor!=null) {
+			Pose towerPose = towerAnchor.getPose();
 
-		for (Enemy enemy : enemies) {
-			if (enemy.state == Enemy.State.Wait) {
-				if (enemy.waitTime > 0) {
-					enemy.waitTime -= f;
+			for (Enemy enemy : enemies) {
+				if (enemy.state == Enemy.State.Wait) {
+					enemy.startWait(f);
 				} else {
-					enemy.state = Enemy.State.Normal;
+					movers[enemy.meshIndex].move(enemy, f, towerPose);
 				}
-			} else {
-				enemy.animationPos = (enemy.animationPos + f) % enemy.animationLength;
-				enemy.x -= enemy.vx * f;
-				enemy.z -= enemy.vz * f;
-				enemy.y = (float) (1f + (Math.cos((enemy.animationPos / enemy.animationLength) * 2 * Math.PI)) * 0.2f) * 0.1f;
 			}
-
 		}
 	}
 
@@ -246,17 +254,32 @@ public class Game {
 			for (int i = 0; i < enemyInWave; i++) {
 				addEnemy(0, waitTime * i + r.nextFloat() * waitTime);
 			}
+
+
+			//Добавить ящик с аптечкой
+			if (waveNumber>3 && waveNumber%2==0) {
+				addEnemy(2, waitTime + r.nextFloat() * waveEnemyTime);
+			}
+
+			if (waveNumber>1){
+				addScore(1000);
+			}
 		}
 	}
 
 	private boolean addEnemy(int meshIndex, float waitTime) {
 
-		for (Enemy enemy : enemies) {
-			if (enemy.isFree()) {
-				enemy.reset(meshIndex, 0.5f + r.nextFloat() * 0.5f, r.nextFloat() * 360f,
-						0.05f + r.nextFloat() * 0.005f,
-						waitTime);
-				return true;
+		if (towerAnchor!=null) {
+			Pose towerPose = towerAnchor.getPose();
+			for (Enemy enemy : enemies) {
+				if (enemy.isFree()) {
+					float power = (meshIndex == 2) ? -25f : 4f;
+
+					enemy.reset(meshIndex, power, towerPose,0.5f + r.nextFloat() * 0.5f, r.nextFloat() * 360f,
+							0.05f + r.nextFloat() * 0.005f,
+							waitTime);
+					return true;
+				}
 			}
 		}
 		return false;

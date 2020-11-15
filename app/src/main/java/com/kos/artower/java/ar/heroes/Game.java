@@ -160,7 +160,7 @@ public class Game {
 
 							if (dx * dx + dz * dz < (powerRadius) * (powerRadius)) {
 								if (dy < powerRadius) {
-									anchor.destroy();
+									anchor.readyDestroy();
 									enemy.destroy();
 									addScore(enemy.score);
 								}
@@ -168,7 +168,10 @@ public class Game {
 						}//enemy in game
 					}
 				}//anchr shooting
-			}
+				if (anchor.isReadyDestroy()){
+					anchor.destroy();
+				}
+			}//for anchors
 		}
 
 	}
@@ -192,16 +195,17 @@ public class Game {
 
 				float sum = dx * dx + dy * dy + dz * dz;
 				float d2 = distance * distance;
+				float delta = (float) Math.sqrt(sum);
 
 				if (sum <= d2) {
 					anchor.coreX = anchor.anchor.tx();
 					anchor.coreY = anchor.anchor.ty();
 					anchor.coreZ = anchor.anchor.tz();
-					anchor.destroy();
+					anchor.readyDestroy();
 				} else {
-					anchor.coreX = anchor.coreX - Math.min(Math.abs(dx), distance)*Math.signum(dx);
-					anchor.coreY = anchor.coreY - Math.min(Math.abs(dy), distance)*Math.signum(dy);
-					anchor.coreZ = anchor.coreZ - Math.min(Math.abs(dz), distance)*Math.signum(dz);
+					anchor.coreX = anchor.coreX - dx*distance/delta;
+					anchor.coreY = anchor.coreY - dy*distance/delta;
+					anchor.coreZ = anchor.coreZ - dz*distance/delta;
 				}
 			}
 
@@ -289,14 +293,14 @@ public class Game {
 	public void shot(Pose position) {
 
 		for (ColoredAnchor anchor : anchors) {
-			if (!anchor.shooting) {
-				anchor.shooting = true;
-
+			if (anchor.inGame() && !anchor.isShooting()) {
 				anchor.coreX = position.tx();
 				anchor.coreY = position.ty();
 				anchor.coreZ = position.tz();
 
 				anchor.speed = core.speed;
+
+				anchor.setShooting(true);
 			}
 		}
 	}

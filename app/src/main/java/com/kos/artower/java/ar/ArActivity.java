@@ -661,7 +661,7 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 						Matrix.rotateM(modelMatrix, 0, game.gameTime * 0.001f * 180, 0, 1, 0);
 						drawMesh(targetMesh, targetColor, colorCorrectionRgba, modelMatrix, shader);
 
-						if (coloredAnchor.shooting) {
+						if (coloredAnchor.isShooting()) {
 							Pose.IDENTITY.toMatrix(modelMatrix, 0);
 							Matrix.translateM(modelMatrix, 0, coloredAnchor.coreX, coloredAnchor.coreY, coloredAnchor.coreZ);
 							drawMesh(coreMesh, targetColor, colorCorrectionRgba, modelMatrix, shader);
@@ -836,25 +836,28 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 	 */
 	private void showOcclusionDialogIfNeeded() {
 		boolean isDepthSupported = session.isDepthModeSupported(Config.DepthMode.AUTOMATIC);
-		if (!depthSettings.shouldShowDepthEnableDialog() || !isDepthSupported) {
-			return; // Don't need to show dialog.
+		if (isDepthSupported) {
+			depthSettings.setUseDepthForOcclusion(true);
 		}
-
-		// Asks the user whether they want to use depth-based occlusion.
-		new AlertDialog.Builder(this)
-				.setTitle(R.string.options_title_with_depth)
-				.setMessage(R.string.depth_use_explanation)
-				.setPositiveButton(
-						R.string.button_text_enable_depth,
-						(DialogInterface dialog, int which) -> {
-							depthSettings.setUseDepthForOcclusion(true);
-						})
-				.setNegativeButton(
-						R.string.button_text_disable_depth,
-						(DialogInterface dialog, int which) -> {
-							depthSettings.setUseDepthForOcclusion(false);
-						})
-				.show();
+//		if (!depthSettings.shouldShowDepthEnableDialog() || !isDepthSupported) {
+//			return; // Don't need to show dialog.
+//		}
+//
+//		// Asks the user whether they want to use depth-based occlusion.
+//		new AlertDialog.Builder(this)
+//				.setTitle(R.string.options_title_with_depth)
+//				.setMessage(R.string.depth_use_explanation)
+//				.setPositiveButton(
+//						R.string.button_text_enable_depth,
+//						(DialogInterface dialog, int which) -> {
+//							depthSettings.setUseDepthForOcclusion(true);
+//						})
+//				.setNegativeButton(
+//						R.string.button_text_disable_depth,
+//						(DialogInterface dialog, int which) -> {
+//							depthSettings.setUseDepthForOcclusion(false);
+//						})
+//				.show();
 	}
 
 	private void launchInstantPlacementSettingsMenuDialog() {

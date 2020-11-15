@@ -30,13 +30,13 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.PopupMenu;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.ar.core.Anchor;
 import com.google.ar.core.ArCoreApk;
 import com.google.ar.core.Camera;
 import com.google.ar.core.Config;
@@ -54,6 +54,7 @@ import com.google.ar.core.Pose;
 import com.google.ar.core.Session;
 import com.google.ar.core.Trackable;
 import com.google.ar.core.TrackingState;
+import com.kos.artower.java.ar.meshs.TowerMesh;
 import com.kos.artower.java.common.helpers.CameraPermissionHelper;
 import com.kos.artower.java.common.helpers.DepthSettings;
 import com.kos.artower.java.common.helpers.DisplayRotationHelper;
@@ -82,7 +83,6 @@ import com.kos.artower.java.ar.meshs.HelicopterMesh;
 import com.kos.artowerr.R;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -100,10 +100,11 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 
 
 
-
+	TextView scoreLabel;
 	View readyFrame;
 	Button readyButton;
 	Game game = new Game();
+
 
 
 
@@ -164,30 +165,17 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 	private Mesh healthMesh;
 	private Mesh canonMesh;
 	private Mesh coreMesh;
-	private Mesh towerMesh;
-	private Mesh towerWallMesh;
+	private Mesh targetMesh;
+
+	private TowerMesh tower;
 	private HelicopterMesh helicopter;
-	private Anchor towerAnchor;
+
 	private Mesh[] enemyMeshs;
 
 	private Shader virtualObjectShader;
 	private Shader virtualObjectDepthShader;
 
-	// Anchors created from taps used for object placing with a given color.
-	private static class ColoredAnchor {
 
-		public final Anchor anchor;
-		public float[] color;
-		public final Trackable trackable;
-
-		public ColoredAnchor(Anchor a, float[] color4f, Trackable trackable) {
-			this.anchor = a;
-			this.color = color4f;
-			this.trackable = trackable;
-		}
-	}
-
-	private final ArrayList<ColoredAnchor> anchors = new ArrayList<>();
 
 	// Temporary matrix allocated here to reduce number of allocations for each frame.
 	private final float[] scaleMatrix = {0.05f, 0, 0, 0, 0, 0.05f, 0, 0, 0, 0, 0.05f, 0, 0, 0, 0, 1};
@@ -201,7 +189,8 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 
 	private final float[] viewLightDirection = new float[4]; // view x LIGHT_DIRECTION
 	private final float[] towerColor = {66.0f / 255.0f, 255.0f / 255.0f, 244.0f / 255.0f};
-	private final float[] enemyColor = {266.0f / 255.0f, 255.0f / 255.0f, 123.0f / 255.0f};
+	private final float[] enemyColor = {255.0f / 255.0f, 255.0f / 255.0f, 123.0f / 255.0f};
+	private final float[] targetColor = {240.0f / 255.0f, 22.0f / 255.0f, 22.0f / 255.0f};
 
 	private float centerPositionX = 0.0f;
 	private float centerPositionY = 0.0f;
@@ -227,6 +216,8 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 		setContentView(R.layout.activity_main);
 		surfaceView = findViewById(R.id.surfaceview);
 		displayRotationHelper = new DisplayRotationHelper(/*context=*/ this);
+		scoreLabel = findViewById(R.id.scoreLabel);
+
 
 		// Set up touch listener.
 		tapHelper = new TapHelper(/*context=*/ this);
@@ -262,6 +253,18 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 		readyButton.setOnClickListener((v)->{
 				setReadyState( Game.TOWER_ANCHOR);
 		});
+
+		updateScore();
+	}
+
+	private void updateScore() {
+		game.scoreIsUpdated = false;
+		if (game.readyState == Game.GAME){
+			scoreLabel.setText(getString(R.string.score, game.score));
+			scoreLabel.setVisibility(View.VISIBLE);
+		}else{
+			scoreLabel.setVisibility(View.GONE);
+		}
 	}
 
 	@Override
@@ -325,19 +328,19 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 				session = new Session(/* context= */ this);
 			} catch (UnavailableArcoreNotInstalledException
 					| UnavailableUserDeclinedInstallationException e) {
-				message = "Please install ARCore";
+				message = getString(R.string.arErrorInstallARCore);
 				exception = e;
 			} catch (UnavailableApkTooOldException e) {
-				message = "Please update ARCore";
+				message = getString(R.string.arErrorUpdateARCore);
 				exception = e;
 			} catch (UnavailableSdkTooOldException e) {
-				message = "Please update this app";
+				message = getString(R.string.arErrorUpdateApp);
 				exception = e;
 			} catch (UnavailableDeviceNotCompatibleException e) {
-				message = "This device does not support AR";
+				message = getString(R.string.arErrorNoSupportAR);
 				exception = e;
 			} catch (Exception e) {
-				message = "Failed to create AR session";
+				message = getString(R.string.arErrorCreateSession);
 				exception = e;
 			}
 
@@ -353,7 +356,7 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 			configureSession();
 			session.resume();
 		} catch (CameraNotAvailableException e) {
-			messageSnackbarHelper.showError(this, "Camera not available. Try restarting the app.");
+			messageSnackbarHelper.showError(this, getString(R.string.arErrorCameraUnavailable));
 			session = null;
 			return;
 		}
@@ -379,7 +382,7 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 	public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
 		super.onRequestPermissionsResult(requestCode, permissions, results);
 		if (!CameraPermissionHelper.hasCameraPermission(this)) {
-			Toast.makeText(this, "Camera permission is needed to run this application", Toast.LENGTH_LONG)
+			Toast.makeText(this, getString(R.string.arErrorCameraPermission), Toast.LENGTH_LONG)
 					.show();
 			if (!CameraPermissionHelper.shouldShowRequestPermissionRationale(this)) {
 				// Permission denied with checking "Do not ask again".
@@ -422,19 +425,40 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 							render, Mesh.PrimitiveMode.POINTS, /*indexBuffer=*/ null, pointCloudVertexBuffers);
 
 
-			//Mesh
+			// Virtual object to render
+			Texture virtualObjectTexture =
+					Texture.createFromAsset(render, "models/andy.png", Texture.WrapMode.CLAMP_TO_EDGE);
+			virtualObjectMesh = Mesh.createFromAsset(render, "models/tower.obj");
+			virtualObjectShader =
+					createVirtualObjectShader(
+							render, virtualObjectTexture, /*use_depth_for_occlusion=*/ false);
+			virtualObjectDepthShader =
+					createVirtualObjectShader(render, virtualObjectTexture, /*use_depth_for_occlusion=*/ true)
+							.setTexture("u_DepthTexture", depthTexture);
+
+			//Helicopter shader
+			Texture helicopterTexture =
+					Texture.createFromAsset(render, "models/helicopter.png", Texture.WrapMode.CLAMP_TO_EDGE);
+
+			Shader helicopterShader = createVirtualObjectShader(
+					render, helicopterTexture, /*use_depth_for_occlusion=*/ false);
+
+			//Meshs
 			enemyOneMesh = Mesh.createFromAsset(render, "models/enemy_one.obj");
 			enemyTwoMesh = Mesh.createFromAsset(render, "models/enemy_two.obj");
 			healthMesh = Mesh.createFromAsset(render, "models/health.obj");
 			canonMesh = Mesh.createFromAsset(render, "models/canon.obj");
 			coreMesh = Mesh.createFromAsset(render, "models/core.obj");
-			towerMesh = Mesh.createFromAsset(render, "models/tower.obj");
-			towerWallMesh = Mesh.createFromAsset(render, "models/tower_wall.obj");
+			targetMesh = Mesh.createFromAsset(render, "models/target.obj");
+
+			tower = new TowerMesh(render,"models/tower.obj", "models/tower_wall.obj", virtualObjectShader, virtualObjectShader);
 			helicopter = new HelicopterMesh(render,
 					"models/helicopter.obj",
 					"models/helicopter_rotor.obj",
 					"models/helicopter_tail.obj",
-					"models/helicopter.png");
+					helicopterShader,
+					virtualObjectShader
+					);
 
 
 
@@ -445,16 +469,7 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 			enemyMeshs[3] = canonMesh;
 			enemyMeshs[4] = coreMesh;
 
-			// Virtual object to render (Andy the android)
-			Texture virtualObjectTexture =
-					Texture.createFromAsset(render, "models/andy.png", Texture.WrapMode.CLAMP_TO_EDGE);
-			virtualObjectMesh = Mesh.createFromAsset(render, "models/tower.obj");
-			virtualObjectShader =
-					createVirtualObjectShader(
-							render, virtualObjectTexture, /*use_depth_for_occlusion=*/ false);
-			virtualObjectDepthShader =
-					createVirtualObjectShader(render, virtualObjectTexture, /*use_depth_for_occlusion=*/ true)
-							.setTexture("u_DepthTexture", depthTexture);
+
 
 		} catch (IOException e) {
 			Log.e(TAG, "Failed to read an asset file", e);
@@ -484,6 +499,13 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 
 		game.updateTime();
 		game.moveObjects();
+
+		//Todo: Kos 15.11.2020 Нужно выполнить в главном потоке
+//		if (game.scoreIsUpdated){
+//
+//			updateScore();
+//		}
+
 		try {
 			// Obtain the current frame from ARSession. When the configuration is set to
 			// UpdateMode.BLOCKING (it is by default), this will throttle the rendering to the
@@ -546,14 +568,17 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 						hitTower = null;
 					}
 
-					if (towerAnchor!=null){
-						towerAnchor.detach();
-						towerAnchor = null;
+					if (game.towerAnchor!=null){
+						game.towerAnchor.detach();
+						game.towerAnchor = null;
 					}
 
-					towerAnchor = hitTower.createAnchor();
+					game.towerAnchor = hitTower.createAnchor();
 					setReadyState(Game.GAME);
 				}
+			}else
+			if (game.readyState == Game.GAME){
+				handleTap(frame, camera);
 			}
 
 			// If frame is ready, render camera preview image to the GL surface.
@@ -612,48 +637,54 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 			Shader shader =
 					depthSettings.useDepthForOcclusion() ? virtualObjectDepthShader : virtualObjectShader;
 
-			// Visualize anchors created by touch.
-			for (ColoredAnchor coloredAnchor : anchors) {
-				if (coloredAnchor.anchor.getTrackingState() != TrackingState.TRACKING) {
-					continue;
-				}
 
-				// For anchors attached to Instant Placement points, update the color once the tracking
-				// method becomes FULL_TRACKING.
-				if (coloredAnchor.trackable instanceof InstantPlacementPoint
-						&& ((InstantPlacementPoint) coloredAnchor.trackable).getTrackingMethod()
-						== TrackingMethod.FULL_TRACKING) {
-					coloredAnchor.color = getTrackableColor(coloredAnchor.trackable);
-				}
-
-				coloredAnchor.anchor.getPose().toMatrix(modelMatrix, 0);
-				drawMesh(enemyTwoMesh, coloredAnchor.color, colorCorrectionRgba, modelMatrix, shader);
-
-			}
 
 			if (game.readyState == Game.FIND_SURFACE) {
 				if (hitTower != null) {
 					hitTower.getHitPose().toMatrix(modelMatrix, 0);
-					drawMesh(towerMesh, towerColor, colorCorrectionRgba, modelMatrix, shader);
+
+					drawMesh(tower.mesh, towerColor, colorCorrectionRgba, modelMatrix, tower.shader);
 				}
-			}else{
+			}else
+			if (game.readyState == Game.GAME)
+				{
+
 				//Is In Game
-				drawTower(colorCorrectionRgba, shader);
+				drawTower(colorCorrectionRgba);
+				Pose towerPose = game.towerAnchor.getPose();
 
+				// Visualize anchors created by touch.
+				for (ColoredAnchor coloredAnchor : game.anchors) {
+					coloredAnchor.anchor.toMatrix(modelMatrix, 0);
+					drawMesh(targetMesh, targetColor, colorCorrectionRgba, modelMatrix, shader);
 
+					if (coloredAnchor.shooting){
+						Pose.IDENTITY.toMatrix(modelMatrix, 0);
+						Matrix.translateM(modelMatrix,0, coloredAnchor.coreX, coloredAnchor.coreY, coloredAnchor.coreZ  );
+						drawMesh(coreMesh, targetColor, colorCorrectionRgba, modelMatrix, shader);
+					}
+				}
 
 				for (Enemy enemy : game.enemies) {
 					if (enemy.state == Enemy.State.Normal){
-						towerAnchor.getPose().toMatrix(modelMatrix, 0);
+						towerPose.toMatrix(modelMatrix, 0);
 
 						Matrix.rotateM(modelMatrix,0, enemy.angle,0,1,0);
 						Matrix.translateM(modelMatrix,0, enemy.x, enemy.y, enemy.z);
 						drawMesh(enemyMeshs[enemy.meshIndex],enemyColor,colorCorrectionRgba, modelMatrix, shader);
 
+//						float tx =  (float) (Math.cos(enemy.angle/180*Math.PI)*enemy.x);
+//						float ty = towerPose.ty();
+//						float tz = -(float) (Math.sin(enemy.angle/180*Math.PI)*enemy.x);
+//
+//						towerPose.toMatrix(modelMatrix, 0);
+//
+//						Matrix.translateM(modelMatrix,0, tx, enemy.y, tz);
+//						drawMesh(enemyMeshs[2],targetColor,colorCorrectionRgba, modelMatrix, shader);
 					}
 				}
 
-				drawHelicopter(camera, modelMatrix, colorCorrectionRgba, shader);
+				drawHelicopter(camera, modelMatrix, colorCorrectionRgba);
 
 
 			}
@@ -668,21 +699,35 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 		return (Math.abs(hitPose.qx())< hitEps  && Math.abs(hitPose.qz())< hitEps);
 	}
 
-	private void drawTower(float[] colorCorrectionRgba, Shader shader) {
-		if (towerAnchor!=null){
-			towerAnchor.getPose().toMatrix(modelMatrix, 0);
-			drawMesh(towerMesh, towerColor, colorCorrectionRgba, modelMatrix, shader);
+	private void drawTower(float[] colorCorrectionRgba) {
+		if (game.towerAnchor!=null){
+			game.towerAnchor.getPose().toMatrix(modelMatrix, 0);
+			drawMesh(tower.mesh, towerColor, colorCorrectionRgba, modelMatrix, tower.shader);
 
 			float scale = game.tower.radius/game.tower.maxRadius;
 			Matrix.scaleM(modelMatrix, 0, scale,1.2f*scale,scale);
-			drawMesh(towerWallMesh, towerColor, colorCorrectionRgba, modelMatrix, shader);
+			drawMesh(tower.wallMesh, towerColor, colorCorrectionRgba, modelMatrix, tower.wallShader);
 		}
 	}
 
-	private void drawHelicopter(Camera camera, float[] modelMatrix, float[] colorCorrectionRgba, Shader shader) {
+	private void drawHelicopter(Camera camera, float[] modelMatrix, float[] colorCorrectionRgba) {
 		helicopter.moveRotors(game.frameDuration);
+		getHelicopterPosition(camera, modelMatrix);
 
 
+		drawMesh(helicopter.helicopterMesh, helicopter.color, colorCorrectionRgba, modelMatrix, helicopter.shader);
+
+		Matrix.rotateM(modelMatrix,0, helicopter.rotorAngle , 0,1,0);
+		drawMesh(helicopter.helicopterRotorMesh, helicopter.rotorColor, colorCorrectionRgba, modelMatrix,  helicopter.rotorShader);
+
+		Matrix.rotateM(modelMatrix,0, -helicopter.rotorAngle , 0,1,0);
+		Matrix.translateM(modelMatrix,0, helicopter.tailRotorTranslate[0], helicopter.tailRotorTranslate[1], helicopter.tailRotorTranslate[2]);
+		Matrix.rotateM(modelMatrix,0, helicopter.rotorTailAngle , 1,0,0);
+
+		drawMesh(helicopter.helicopterRotorTailMesh, helicopter.rotorColor, colorCorrectionRgba, modelMatrix, helicopter.rotorShader);
+	}
+
+	private void getHelicopterPosition(Camera camera, float[] modelMatrix) {
 		//Переместим вертолёт
 		Pose sensorPose = camera.getDisplayOrientedPose();
 
@@ -698,27 +743,16 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 		Matrix.translateM(modelMatrix,0,
 				//towerAnchor.getPose().tx(),
 				sensorPose.tx(),
-				towerAnchor.getPose().ty()+0.7f , //Выше плоскости башни на 1 метр
+				game.towerAnchor.getPose().ty()+0.7f , //Выше плоскости башни на 1 метр
 				//towerAnchor.getPose().tz());
 				sensorPose.tz());
 
 
-		Matrix.scaleM(modelMatrix, 0 ,0.2f,0.2f,0.2f);
+
 		Matrix.multiplyMM(modelMatrix,0, modelMatrix, 0, tempMatrix, 0);
 		Matrix.rotateM(modelMatrix,0, 180f, 0,1,0);
 		Matrix.translateM(modelMatrix,0, 0, 0, 0.4f);
-
-
-		drawMesh(helicopter.helicopterMesh, helicopter.color, colorCorrectionRgba, modelMatrix, helicopter.shader);
-
-		Matrix.rotateM(modelMatrix,0, helicopter.rotorAngle , 0,1,0);
-		drawMesh(helicopter.helicopterRotorMesh, helicopter.rotorColor, colorCorrectionRgba, modelMatrix, shader);
-
-		Matrix.rotateM(modelMatrix,0, -helicopter.rotorAngle , 0,1,0);
-		Matrix.translateM(modelMatrix,0, helicopter.tailRotorTranslate[0], helicopter.tailRotorTranslate[1], helicopter.tailRotorTranslate[2]);
-		Matrix.rotateM(modelMatrix,0, helicopter.rotorTailAngle , 1,0,0);
-
-		drawMesh(helicopter.helicopterRotorTailMesh, helicopter.rotorColor, colorCorrectionRgba, modelMatrix, shader);
+		Matrix.scaleM(modelMatrix, 0 ,0.2f,0.2f,0.2f);
 	}
 
 	private void drawMesh(Mesh mesh, float[] color, float[] colorCorrectionRgba, float[] modelMatrix, Shader shader) {
@@ -747,19 +781,19 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 			HitResult hit = hitPosition(frame, camera, tap.getX(), tap.getY());
 
 			if (hit!=null){
-				// Cap the number of objects created. This avoids overloading both the
-				// rendering system and ARCore.
-				if (anchors.size() >= 20) {
-					anchors.get(0).anchor.detach();
-					anchors.remove(0);
-				}
-
-				float[] objColor = getTrackableColor(hit.getTrackable());
 
 				// Adding an Anchor tells ARCore that it should track this position in
 				// space. This anchor is created on the Plane to place the 3D model
 				// in the correct position relative both to the world and to the plane.
-				anchors.add(new ColoredAnchor(hit.createAnchor(), objColor, hit.getTrackable()));
+				game.addAnchor(new ColoredAnchor(hit.getHitPose()));
+				//Todo: Kos 14.11.2020 Нужно стрелять из пушек вертолёта
+				getHelicopterPosition(camera, modelMatrix);
+
+				Pose sensorPose = camera.getDisplayOrientedPose();
+
+
+				game.shot(Pose.makeTranslation(sensorPose.tx(),game.towerAnchor.getPose().ty()+0.7f,sensorPose.tz()));
+
 				// For devices that support the Depth API, shows a dialog to suggest enabling
 				// depth-based occlusion. This dialog needs to be spawned on the UI thread.
 				this.runOnUiThread(this::showOcclusionDialogIfNeeded);

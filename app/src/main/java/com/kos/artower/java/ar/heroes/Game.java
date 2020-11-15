@@ -1,13 +1,22 @@
 package com.kos.artower.java.ar.heroes;
 
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 
+import com.google.ar.core.Anchor;
+import com.google.ar.core.Pose;
+import com.kos.artower.java.ar.ColoredAnchor;
+
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.Random;
 
 public class Game {
 
 	public static final int MAX_ENEMIES = 50;
 	public static final int MAX_CORES = 30;
+	public static final int MAX_TARGETS = 30;
 
 	public static final int FIND_SURFACE = 1;
 	public static final int TOWER_ANCHOR = 2;
@@ -15,10 +24,18 @@ public class Game {
 
 	public int readyState = FIND_SURFACE;
 
+
+	public float coreSpeed = 0.02f;//Скорость полёта пули
 	public long globalTime = 0L;
 	public long frameDuration = 0L;
 	public long gameTime = 0L;
+	public long score = 0L;
+	public boolean scoreIsUpdated = false; //Флаг что значение очков изменилось
 
+	public float coreRadius = 0.02f; //Радиус пули
+	public float coreTargetRadius = 0.08f; //Радиус взрыва от пули
+
+	public ArrayList<ColoredAnchor> anchors = new ArrayList<>(MAX_TARGETS);
 
 	@NonNull
 	public Tower tower = new Tower();
@@ -32,6 +49,11 @@ public class Game {
 	private float waveEnemyTime = 20; //Время в секундах
 	private int waveNumber = 1;
 
+
+	public int shotCounter = 0;
+
+	public Anchor towerAnchor;
+
 	@NonNull
 	public Random r = new Random(System.currentTimeMillis() * 23);
 
@@ -40,6 +62,9 @@ public class Game {
 
 	}
 
+	/**
+	 * Сброс настроек игры, чтобы начать заново
+	 */
 	public void resetGame() {
 		updateTime();
 		gameTime = 0;
@@ -56,9 +81,16 @@ public class Game {
 
 		waveNumber = 0;
 		waveEnemyTime = 20; //Время в секундах
+		score = 0;
 
+		shotCounter = 0;
+		coreSpeed = 0.8f;
+		scoreIsUpdated = true;
+		clearAnchors();
+	}
 
-
+	private void clearAnchors() {
+		anchors.clear();
 	}
 
 	public long updateTime() {
@@ -75,26 +107,111 @@ public class Game {
 		moveCores();
 		intersectEnemies();
 
+		removeAnchors();
+
+	}
+
+	private void removeAnchors() {
+		Iterator<ColoredAnchor> iter = anchors.iterator();
+		while(iter.hasNext()){
+			ColoredAnchor anchor =  iter.next();
+			if (anchor.destroy){
+				iter.remove();
+			}
+		}
 	}
 
 	private void intersectEnemies() {
+		if (towerAnchor!=null) {
+			Pose towerPose = towerAnchor.getPose();
+			for (Enemy enemy : enemies) {
+				if (enemy.inGame()) {
+					if (intersectShot(towerPose, enemy)) {
+						enemy.destroy();
+						addScore(enemy.score);
+					} else if (enemy.x < tower.radius) {
+						changeHealth(-enemy.power);
+						enemy.destroy();
+					}
+				}
+			}
+			intersectTowerAnchors(towerPose);
+		}
+	}
 
-		for (Enemy enemy : enemies) {
-			if (enemy.inGame() && enemy.x < tower.radius) {
-				changeHealth(-enemy.power);
-				enemy.destroy();
+	private void intersectTowerAnchors(Pose towerPose) {
+		for (ColoredAnchor anchor : anchors) {
+			float dx = anchor.coreX - towerPose.tx();
+			float dz = anchor.coreZ - towerPose.tz();
+
+			if (dx*dx+dz*dz< (tower.minRadius+coreRadius) *(tower.minRadius+coreRadius)){
+
+				if (anchor.coreY>towerPose.ty() && anchor.coreY<tower.height){
+					changeHealth(-anchor.power);
+					addScore(1);
+					anchor.destroy=true;
+				}
 			}
 		}
+	}
+
+	private boolean intersectShot(Pose towerPose, Enemy enemy) {
+		if (towerAnchor!=null) {
+
+			float tx = towerPose.tx() + (float) (Math.cos(enemy.angle/180*Math.PI)*enemy.x);
+			float ty = towerPose.ty();
+			float tz = towerPose.tz() - (float) (Math.sin(enemy.angle/180*Math.PI)*enemy.x);
+
+			for (ColoredAnchor anchor : anchors) {
+				float dx = anchor.coreX - tx;
+				float dy = Math.abs(anchor.coreY - ty);
+				float dz = anchor.coreZ - tz;
+
+				float powerRadius =  (dy<coreRadius)? coreTargetRadius: coreRadius;
+
+				if (dx*dx+dz*dz+dy*dy< (powerRadius) *(powerRadius)){
+					anchor.destroy=true;
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	private void addScore(int score) {
+		this.score+=score;
+		scoreIsUpdated = true;
 	}
 
 	private void moveCores() {
 		float f = frameDuration * 0.001f;
 
-		for (Enemy enemy : cores) {
-			enemy.x -= enemy.vx * f;
-			enemy.y -= enemy.vy * f;
-			enemy.z -= enemy.vz * f;
+		for (ColoredAnchor anchor : anchors) {
+			if (anchor.shooting){
+				float dx = anchor.coreX - anchor.anchor.tx();
+				float dy = anchor.coreY - anchor.anchor.ty();
+				float dz = anchor.coreZ - anchor.anchor.tz();
+
+
+				float distance = f*anchor.speed;
+
+				float sum = dx*dx+dy*dy+dz*dz;
+				float d2 = distance*distance;
+
+				if (sum<=d2){
+					anchor.coreX = anchor.anchor.tx();
+					anchor.coreY = anchor.anchor.ty();
+					anchor.coreZ = anchor.anchor.tz();
+					anchor.destroy = true;
+				}else {
+					anchor.coreX = anchor.coreX-Math.min(dx, distance);
+					anchor.coreY = anchor.coreY-Math.min(dy,distance);
+					anchor.coreZ = anchor.coreZ-Math.min(dz,distance);
+				}
+			}
+
 		}
+
 	}
 
 	private void moveEnemies() {
@@ -111,7 +228,6 @@ public class Game {
 				enemy.animationPos = (enemy.animationPos + f) % enemy.animationLength;
 				enemy.x -= enemy.vx * f;
 				enemy.z -= enemy.vz * f;
-
 				enemy.y = (float) (1f + (Math.cos((enemy.animationPos / enemy.animationLength) * 2 * Math.PI)) * 0.2f) * 0.1f;
 			}
 
@@ -173,5 +289,31 @@ public class Game {
 	private void gameOver() {
 		//Todo: Kos 14.11.2020  need game over state
 		resetGame();
+	}
+
+	public void shot(Pose position){
+
+		for (ColoredAnchor anchor : anchors) {
+			if (!anchor.shooting){
+				anchor.shooting = true;
+
+				anchor.coreX = position.tx();
+				anchor.coreY = position.ty();
+				anchor.coreZ = position.tz();
+				Log.d("Kos", "Kos shotsp "+anchor.coreX+" "+anchor.coreY+" "+anchor.coreZ+" " );
+				Log.d("Kos", "Kos anchor "+anchor.anchor.tx()+" "+anchor.anchor.ty()+" "+anchor.anchor.tz()+" " );
+
+				anchor.speed = coreSpeed;
+			}
+		}
+	}
+
+	public void addAnchor(ColoredAnchor coloredAnchor) {
+		if (anchors.size() >= MAX_TARGETS) {
+			anchors.remove(0);
+		}
+
+
+		anchors.add(coloredAnchor);
 	}
 }

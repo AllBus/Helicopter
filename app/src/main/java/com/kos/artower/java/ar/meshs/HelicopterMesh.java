@@ -13,6 +13,7 @@ public class HelicopterMesh {
 	public Mesh helicopterRotorMesh;
 	public Mesh helicopterRotorTailMesh;
 	public Shader shader;
+	public Shader rotorShader;
 
 
 	public float[] color = {66.0f / 255.0f, 240.0f / 255.0f, 234.0f / 255.0f};;
@@ -21,16 +22,15 @@ public class HelicopterMesh {
 	public float rotorTailAngle = 0f;
 	public float[] tailRotorTranslate = {0, 0.05f,-0.38f};
 
-	public HelicopterMesh(SampleRender render, String helicopterFile, String helicopterRotorFile, String helicopterTailRotorFile, String textureFile) throws IOException {
+	public HelicopterMesh(SampleRender render, String helicopterFile, String helicopterRotorFile, String helicopterTailRotorFile,
+						  Shader helicopterShader, Shader rotorShader) throws IOException {
 		helicopterMesh = Mesh.createFromAsset(render, helicopterFile);
 		helicopterRotorMesh = Mesh.createFromAsset(render, helicopterRotorFile);
 		helicopterRotorTailMesh = Mesh.createFromAsset(render, helicopterTailRotorFile);
 
-		Texture virtualObjectTexture =
-				Texture.createFromAsset(render, textureFile, Texture.WrapMode.CLAMP_TO_EDGE);
+		this.shader = helicopterShader;
+		this.rotorShader = rotorShader;
 
-		shader = createVirtualObjectShader(
-				render, virtualObjectTexture, /*use_depth_for_occlusion=*/ false);
 	}
 
 	public void moveRotors(long frameDuration) {

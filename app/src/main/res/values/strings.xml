@@ -15,7 +15,7 @@
    limitations under the License.
 -->
 <resources>
-  <string translatable="false" name="app_name">Helicopter</string>
+  <string translatable="false" name="app_name">Helicopter AR</string>
   <string translatable="false" name="depth_use_explanation">When Depth is enabled on supported devices, virtual objects adapt to the environment by blending in with the real world.</string>
   <string translatable="false" name="button_text_enable_depth">Enable</string>
   <string translatable="false" name="button_text_disable_depth">Disable</string>
@@ -27,10 +27,20 @@
     <item>Show depth map</item>
   </string-array>
   <string translatable="false" name="options_title_instant_placement">Instant Placement options</string>
-	<string name="readyButton">Начать</string>
-  <string name="readyHelp">Перемещайте устройство, чтобы отсканировать игровое пространство. Когда будете готовы нажмите \"Начать\"</string>
+	<string name="readyButton">Start</string>
+  <string name="readyHelp">Move device for scan game space. IF you ready press \"Start\"</string>
   <string-array translatable="false" name="instant_placement_options_array">
     <item>Enable Instant Placement</item>
   </string-array>
+
+  <string name="score">Score: %d</string>
+
+  <string name="arErrorInstallARCore">"Please install ARCore"</string>
+  <string name="arErrorUpdateARCore">"Please update ARCore"</string>
+  <string name="arErrorUpdateApp">"Please update this app"</string>
+  <string name="arErrorNoSupportAR">"This device does not support AR"</string>
+  <string name="arErrorCreateSession">"Failed to create AR session"</string>
+  <string name="arErrorCameraUnavailable">"Camera not available. Try restarting the app."</string>
+  <string name="arErrorCameraPermission">"Camera permission is needed to run this application"</string>
 
 </resources>

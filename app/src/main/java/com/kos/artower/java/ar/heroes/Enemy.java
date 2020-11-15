@@ -15,6 +15,8 @@ public class Enemy {
 	public float animationLength = 1.5f;
 	public float waitTime = 0; //Время в секундах
 	public float power = 4f;
+	public int score = 100;
+	public float radius = 0.03f;
 
 
 	public Enemy.State state = State.Free;
@@ -47,6 +49,7 @@ public class Enemy {
 		this.state = State.Wait;
 		this.waitTime = waitTime;
 		this.power = 4f;
+		this.score = 100;
 	}
 
 	public void destroy() {

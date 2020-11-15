@@ -788,10 +788,8 @@ public class ArActivity extends AppCompatActivity implements SampleRender.Render
 				//Todo: Kos 14.11.2020 Нужно стрелять из пушек вертолёта
 				getHelicopterPosition(camera, modelMatrix);
 
-				Pose sensorPose = camera.getDisplayOrientedPose();
-
-
-				game.shot(Pose.makeTranslation(sensorPose.tx(),game.towerAnchor.getPose().ty()+0.7f,sensorPose.tz()));
+				game.shot(Pose.makeTranslation(modelMatrix[12],modelMatrix[13], modelMatrix[14]));
+				//game.shot(Pose.makeTranslation(sensorPose.tx(),game.towerAnchor.getPose().ty()+0.7f,sensorPose.tz()));
 
 				// For devices that support the Depth API, shows a dialog to suggest enabling
 				// depth-based occlusion. This dialog needs to be spawned on the UI thread.

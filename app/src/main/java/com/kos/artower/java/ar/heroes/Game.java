@@ -199,9 +199,9 @@ public class Game {
 					anchor.coreZ = anchor.anchor.tz();
 					anchor.destroy();
 				} else {
-					anchor.coreX = anchor.coreX - Math.min(dx, distance);
-					anchor.coreY = anchor.coreY - Math.min(dy, distance);
-					anchor.coreZ = anchor.coreZ - Math.min(dz, distance);
+					anchor.coreX = anchor.coreX - Math.min(Math.abs(dx), distance)*Math.signum(dx);
+					anchor.coreY = anchor.coreY - Math.min(Math.abs(dy), distance)*Math.signum(dy);
+					anchor.coreZ = anchor.coreZ - Math.min(Math.abs(dz), distance)*Math.signum(dz);
 				}
 			}
 
@@ -295,8 +295,6 @@ public class Game {
 				anchor.coreX = position.tx();
 				anchor.coreY = position.ty();
 				anchor.coreZ = position.tz();
-				Log.d("Kos", "Kos shotsp " + anchor.coreX + " " + anchor.coreY + " " + anchor.coreZ + " ");
-				Log.d("Kos", "Kos anchor " + anchor.anchor.tx() + " " + anchor.anchor.ty() + " " + anchor.anchor.tz() + " ");
 
 				anchor.speed = core.speed;
 			}
